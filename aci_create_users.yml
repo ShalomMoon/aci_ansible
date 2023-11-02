@@ -1,0 +1,44 @@
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Create a local user
+      cisco.aci.aci_aaa_user:
+        <<: *aci_login
+        aaa_user: matlab_ansible
+        aaa_password: MatLab123!
+        aaa_password_lifetime:
+        aaa_password_update_required: no
+        expiration: never
+        expires: no
+        email: admin@matlab.com
+        first_name: Matador
+        last_name: Laborador
+        validate_certs: no
+        state: present
+      delegate_to: localhost
+
+    - name: Add user to admin group
+        cisco.aci.aci_rest:
+          <<: *aci_login
+          path: /api/node/mo/uni/usertext/user-matlab_ansible/userdomain-all.json
+          method: post
+          content: |
+            {"aaaUserDomain": 
+              {"attributes": 
+                {"name": "all",
+                "rn": "userdomain-all"},
+                "children": [
+                  {"aaaUserRole": {"attributes": {"name": "admin",
+                  "privType": "writePriv", "rn": "role-admin"}}}
+                ] }}

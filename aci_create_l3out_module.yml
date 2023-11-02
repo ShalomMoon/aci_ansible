@@ -1,0 +1,42 @@
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+
+  tasks:
+  - name: Create a new L3out domain
+    cisco.aci.aci_domain:
+      # Manage physical, virtual, bridged, routed or FC domain profiles (phys:DomP, vmm:DomP, l2ext:DomP, l3ext:DomP, fc:DomP)
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+      domain: MATLAB_L3Out_DOM
+      domain_type: l3dom
+      state: present
+    delegate_to: localhost
+    tags: domain 
+
+  - name: Create a new L3Out
+    cisco.aci.aci_l3out:
+      # Manage Layer 3 Outside (L3Out) objects (l3ext:Out)
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+      l3out: MATLAB_L3Out
+      description: L3out for MATLAB tenant
+      tenant: MATLAB
+      domain: MATLAB_L3Out_DOM
+      vrf: MATLAB_VRF
+      l3protocol: bgp
+      route_control: export
+      route_control_enforcement: export
+      state: present
+    delegate_to: localhost
+    tags: l3out 
+
+  

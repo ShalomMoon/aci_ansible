@@ -1,0 +1,17 @@
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+
+  tasks:
+  - name: create complete tenant in one push operation
+    aci_rest:
+      hostname: 'sandboxapicdc.cisco.com'
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: no
+      path: /api/mo/uni.xml
+      method: post
+      content: |
+        <fvTenant name="MATLAB" descr="Customer MATLAB"/>

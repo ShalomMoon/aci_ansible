@@ -1,0 +1,705 @@
+# Refactor 2 add conditional loops and multiple variables.
+
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: 172.16.10.177
+      username: 'admin'
+      password: 'MyACILab23!'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Create a Snapshot
+      cisco.aci.aci_config_snapshot:
+        <<: *aci_login
+        state: present
+        export_policy: config_backup
+        max_count: 10
+        description: Backups taken by MATLAB Test.
+      delegate_to: localhost
+      tags:
+        - fabric
+        - tenant
+        - ap
+        - epg
+
+    - name: Wait for snapshot to be finished before querying
+      pause:
+        seconds: 10
+    - name: Create domain
+      cisco.aci.aci_domain:
+        # Manage physical, virtual, bridged, routed or FC domain profiles (phys:DomP, vmm:DomP, l2ext:DomP, l3ext:DomP, fc:DomP)
+        # API:
+        <<: *aci_login
+        domain: "{{ item.domain }}"
+        domain_type: "{{ item.type }}"
+        # dscp: unspecified
+        state: "{{ item.state }}"
+      with_items:
+        - {domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - domain
+        - fabric
+
+    - name: create Attachable Access Entity Profile (AAEP)
+      cisco.aci.aci_aep:
+        # Manage attachable Access Entity Profile (AEP) objects (infra:AttEntityP, infra:ProvAcc)
+        <<: *aci_login
+        aep: "{{ item.aep }}"
+        description: "{{ item.descr }}"
+        infra_vlan: "{{ item.infra_vlan }}"
+        state: present
+      with_items:
+        - {aep: 'MATLAB_AEP', descr: 'MATLAB AEP', infra_vlan: false, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - aep
+        - fabric
+
+    - name: Associate a Domain to AEP
+      cisco.aci.aci_aep_to_domain:
+        # Bind AEPs to Physical or Virtual Domains (infra:RsDomP)
+        <<: *aci_login
+        aep: "{{ item.aep }}"
+        domain: "{{ item.domain }}"
+        domain_type: "{{ item.domain_type }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {aep: 'MATLAB_AEP', domain: 'MATLAB_PHY_DOM', domain_type: 'phys', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - aep_domain
+        - fabric
+
+    - name: Create CDP Interface Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_cdp:
+      # Manage CDP interface policies (cdp:IfPol)
+        <<: *aci_login
+        cdp_policy: "{{ item.cdp_policy }}"
+        admin_state: "{{ item.admin_state }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {cdp_policy: 'CDP_Enabled_IP', admin_state: true, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - cdp
+        - fabric
+
+    - name: Create LLDP Interface Policy or verify it's state as present   
+      cisco.aci.aci_interface_policy_lldp:
+        #  Manage LLDP interface policies (lldp:IfPol)
+        <<: *aci_login
+        lldp_policy: "{{ item.lldp_policy }}"
+        receive_state: "{{ item.rcv_state }}"
+        transmit_state: "{{ item.tx_state }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {lldp_policy: 'LLDP_Enabled_IP', rcv_state: true, tx_state: true, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - lldp
+        - fabric
+
+    - name: Create Interface Link Level Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_link_level:
+        # Manage Link Level interface policies (fabric:HIfPol)
+        <<: *aci_login
+        link_level_policy: "{{ item.link_level_policy }}"
+        description: "{{ item.descr }}"
+        auto_negotiation: "{{ item.auto }}"
+        speed: "{{ item.speed }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {link_level_policy: '10G_IP', descr: '10G Link', auto: false, speed: '10G', state: 'present'}
+        - {link_level_policy: '1G_IP', descr: '1G Link', auto: false, speed: '1G', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - link
+        - fabric
+
+    - name: Create Interface MCP Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_mcp:
+        # Manage MCP interface policies (mcp:IfPol)
+        <<: *aci_login
+        mcp: "{{ item.mcp }}"
+        description: "{{ item.descr }}"
+        admin_state: "{{ item.admin_state }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {mcp: 'MCP_Enabled_IP', descr: 'MCP Enabled', admin_state: true, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - mcp
+        - fabric
+
+    - name: Create Interface Port Channel Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_port_channel:
+        # Manage port channel interface policies (lacp:LagPol)
+        <<: *aci_login
+        port_channel: "{{ item.port_channel }}"
+        mode: "{{ item.mode }}"
+        min_links: "{{ item.min_links }}"
+        max_links: "{{ item.max_links }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {port_channel: 'LACP_Active_IP', mode: 'active', min_links: 1, max_links: 16, state: 'present'}
+        - {port_channel: 'LACP_Passive_IP', mode: 'passive', min_links: 1, max_links: 16, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - lacp
+        - fabric
+
+    - name: Add Interface Polices to leaf policy group
+      cisco.aci.aci_interface_policy_leaf_policy_group:
+        # Manage fabric interface policy leaf policy groups (infra:AccBndlGrp, infra:AccPortGrp)
+        <<: *aci_login
+        policy_group: "{{  item.policy_group | default(omit, True)  }}"
+        description: "{{  tem.pg_descr | default(omit, True)  }}"
+        link_level_policy: "{{  item.link_level_policy }}"
+        cdp_policy: "{{  item.cdp_policy | default(omit, True) }}"
+        mcp_policy: "{{  item.mcp_policy | default(omit, True) }}"
+        lldp_policy: "{{  item.lldp_policy | default(omit, True) }}"
+        port_channel_policy: "{{ item.port_channel_policy | default(omit, True) }}"
+        lag_type: "{{  item.lag_type | default(omit, True)  }}"
+        aep: "{{ item.aep }}"
+      with_items:
+        - {policy_group: '10G_CDP_LLDP_MCP_IGP', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: , lag_type: 'leaf', aep: 'MATLAB_AEP', state: 'present'}
+        - {policy_group: '1G_CDP_LLDP_MCP_IGP', pg_descr: '1G_CDP_LLDP_MCP', link_level_policy: '1G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: , lag_type: 'leaf', aep: 'MATLAB_AEP', state: 'present'}
+        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC1', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
+        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC2', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
+        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC3', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
+        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC4', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - int_pol_grp
+        - fabric
+
+    - name: Add Interface Policy Leaf Profile
+      cisco.aci.aci_interface_policy_leaf_profile:
+      # Manage fabric interface policy leaf profiles (infra:AccPortP)
+        <<: *aci_login
+        interface_profile: "{{ item.interface_profile }}"
+        description: "{{ item.descr }}"
+        type: "{{ item.type | default(omit, True) }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {interface_profile: 101_MATLAB_LIP, descr: 'Leaf 101 MATLAB Ports', type: ,state: 'present'}
+        - {interface_profile: 102_MATLAB_LIP, descr: 'Leaf 102 MATLAB Ports', type: ,state: 'present'}
+        - {interface_profile: 101_102_MATLAB_LIP, descr: 'Leaf 101 & 102 MATLAB VPCs', type: ,state: 'present'}
+      delegate_to: localhost
+      tags:
+        - intf_profile
+        - fabric
+
+    - name: Add Access Ports to Interface Policy Leaf Profile
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+      # Manage Fabric interface policy leaf profile interface selectors (infra:HPortS, infra:RsAccBaseGrp, infra:PortBlk)
+        <<: *aci_login
+        interface_profile: "{{ item.intf_profile | default(omit, True)  }}"
+        access_port_selector: "{{ item.port_selector | default(omit, True)  }}"
+        description: "{{ item.descr | default(omit, True)  }}"
+        policy_group: "{{ item.policy_grp | default(omit, True) }}"
+        interface_type: "{{ item.intf_type | default(omit, True)  }}"
+        type: "{{ item.type | default(omit, True)  }}"
+        from_card: "{{ item.from_card | default(omit, True)  }}"
+        from_port: "{{ item.from_port | default(omit, True)  }}"
+        to_card: "{{ item.to_card  | default(omit, True) }}"
+        to_port: "{{ item.to_port | default(omit, True)  }}"
+        port_blk: "{{ item.port_blk  | default(omit, True) }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_31', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 31, to_card: 1, to_port: 31, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_32', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 32, to_card: 1, to_port: 32, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_33', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 33, to_card: 1, to_port: 33, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_34', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 34, to_card: 1, to_port: 34, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_35', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 35, to_card: 1, to_port: 35, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_36', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 36, to_card: 1, to_port: 36, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_31', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 31, to_card: 1, to_port: 31, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_32', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 32, to_card: 1, to_port: 32, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_33', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 33, to_card: 1, to_port: 33, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_34', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 34, to_card: 1, to_port: 34, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_35', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 35, to_card: 1, to_port: 35, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_36', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 36, to_card: 1, to_port: 36, port_blk: 'Eth1_31', state: 'present'}
+        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_37', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC1', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 37, to_card: 1, to_port: 37, port_blk: 'Eth1_37', state: 'present'}
+        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_38', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC2', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 38, to_card: 1, to_port: 38, port_blk: 'Eth1_38', state: 'present'}
+        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_39', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC3', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 39, to_card: 1, to_port: 39, port_blk: 'Eth1_39', state: 'present'}
+        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_40', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC4', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 40, to_card: 1, to_port: 40, port_blk: 'Eth1_40', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - intf_selector
+
+    - name: Create Switch Policy Profiles
+      cisco.aci.aci_switch_policy_leaf_profile:
+      # Manage switch policy leaf profiles (infra:NodeP)
+        <<: *aci_login
+        leaf_profile: "{{ item.sw_policy_profile }}"
+        descr: "{{ item.descr }}"
+        state:  "{{ item.state }}"
+      with_items:
+        - {sw_policy_profile: '101_MATLAB_LSP', descr: '101_MATLAB_LSP' ,state: 'present'}
+        - {sw_policy_profile: '102_MATLAB_LSP', descr: '101_MATLAB_LSP' ,state: 'present'}
+        - {sw_policy_profile: '101_102_MATLAB_LSP', descr: '101_MATLAB_LSP' ,state: 'present'}
+      delegate_to: localhost
+      tags:
+        - switch_profile
+        - fabric
+
+    - name: Associate an Interface Selector Profile to a Leaf Switch Profile
+      cisco.aci.aci_interface_selector_to_switch_policy_leaf_profile:
+      # Bind interface selector profiles to switch policy leaf profiles (infra:RsAccPortP)
+        <<: *aci_login
+        leaf_profile: "{{ item.sw_policy_profile }}"
+        interface_selector: "{{ item.interface_selector_profile }}"
+        state:  "{{ item.state }}"
+      with_items:
+        - {sw_policy_profile: '101_MATLAB_LSP', interface_selector_profile: '101_MATLAB_LIP' ,state: 'present'}
+        - {sw_policy_profile: '102_MATLAB_LSP', interface_selector_profile: '102_MATLAB_LIP' ,state: 'present'}
+        - {sw_policy_profile: '101_102_MATLAB_LSP', interface_selector_profile: '101_102_MATLAB_LIP', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - leaf_selector
+        - fabric
+
+    # - name: adding a switch policy leaf profile selector associated Node Block range (w/ policy group)
+    #   cisco.aci.aci_switch_leaf_selector:
+    #     <<: *aci_login
+    #     leaf_profile: '102_MATLAB_LSP'
+    #     leaf: 102
+    #     leaf_node_blk: 102
+    #     from: 102
+    #     to: 102
+    #     policy_group: 
+    #     state: present
+    #   delegate_to: localhost
+    #   tags:
+    #     - turd
+
+    - name: Create tenant
+      cisco.aci.aci_tenant:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        description: "{{ item.descr }}"
+        owner_tag: "{{ item.owner_tag }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', descr: 'MATLAB North America', owner_tag: 'MATLAB Global', state: 'present'}
+        - {tenant: 'MATLAB-2', descr: 'MATLAB Europe', owner_tag: 'MATLAB Global', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - tenant
+        - ap
+        - vrf
+
+    - name: Create application profile (AP)
+      cisco.aci.aci_ap:
+        # Manage top level Application Profile (AP) objects (fv:Ap)
+        # https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}.json
+        <<: *aci_login
+        tenant:  "{{ item.tenant }}"
+        ap: "{{ item.ap }}"
+        description:  "{{ item.descr }}"
+        monitoring_policy:  "{{ item.mon_pol }}"
+        state:  "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', ap: 'App-1_AP', descr: 'eCommerce AP', mon_pol: 'default', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-2_AP', descr: 'Engineering AP', mon_pol: 'default', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-2_AP', descr: 'Marketing AP', mon_pol: 'default', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - ap
+        - tenant
+
+    - name: Create VRF
+      cisco.aci.aci_vrf:
+        # Manage contexts or VRFs (fv:Ctx)
+        # API:
+        <<: *aci_login
+        vrf: "{{ item.vrf }}"
+        tenant: "{{ item.tenant }}"
+        description: "{{ item.descr }}"
+        # ip_data_plane_learning: enabled
+        policy_control_preference: "{{ item.cont_pref }}"
+        policy_control_direction: "{{ item.cont_dir }}"
+        preferred_group: "{{ item.pref_grp }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {vrf: 'MATLAB_VRF', tenant: 'MATLAB', descr: 'MATLAB VRF', cont_pref: 'enforced', cont_dir: 'ingress', pref_grp: 'disabled', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - vrf
+        - tenant
+
+    - name: Create bridge domain (BD)
+      cisco.aci.aci_bd:
+        # Manage Bridge Domains (BD) objects (fv:BD)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}.json
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        bd: "{{ item.bd }}"
+        bd_type: "{{ item.type }}"
+        vrf: "{{ item.vrf }}"
+        arp_flooding: "{{ item.arp }}"
+        endpoint_clear: "{{ item.ep_clr }}"
+        enable_routing: "{{ item.routing }}"
+        enable_multicast: "{{ item.mcast }}"
+        ip_learning: "{{ item.ip_learn }}"
+        # ipv6_l3_unknown_multicast: flood
+        l2_unknown_unicast: "{{ item.l2_unk_ucast }}"
+        l3_unknown_multicast: "{{ item.l3_unk_mcast }}"
+        limit_ip_learn:
+        multi_dest: "{{ item.multi_dest }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', type: 'ethernet', vrf: 'MATLAB_VRF', arp: false, ep_clr: false, routing: true, mcast: false, ip_learn: true, l2_unk_ucast: 'proxy', l3_unk_mcast: 'flood', multi_dest: 'bd-flood', state: 'present'}
+        - {tenant: 'MATLAB', bd: 'MATLAB1-2_BD', type: 'ethernet', vrf: 'MATLAB_VRF', arp: false, ep_clr: false, routing: true, mcast: false, ip_learn: true, l2_unk_ucast: 'proxy', l3_unk_mcast: 'flood', multi_dest: 'bd-flood', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - bd
+        - tenant
+
+    - name: Add subnet to bd
+      cisco.aci.aci_bd_subnet:
+        # Manage Subnets (fv:Subnet)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}/subnet-[{{GATEWAY}}].json
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        bd: "{{ item.bd }}"
+        gateway: "{{ item.gateway }}"
+        mask: "{{ item.mask }}"
+        description: "Subnet {{ item.descr }}"
+        #scope: public
+        #route_profile_l3_out: corp
+        #route_profile: corp_route_profile
+        subnet_name: "{{ item.name }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', gateway: '172.17.17.1', mask: 24, descr: 'Web Servers', name: 'web_servers', state: 'present'}
+        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', gateway: '172.17.18.1', mask: 24, descr: 'app Servers', name: 'app_servers', state: 'present'}
+        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', gateway: '172.17.19.1', mask: 24, descr: 'db Servers', name: 'db_servers', state: 'present'}
+        - {tenant: 'MATLAB', bd: 'MATLAB1-2_BD', gateway: '172.20.11.1', mask: 24, descr: 'Cart Servers', name: 'cart_servers', state: 'present'}
+        - {tenant: 'MATLAB', bd: 'MATLAB1-2_BD', gateway: '172.21.13.1', mask: 24, descr: 'Checkout Servers', name: 'checkout_servers', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - subnet
+        - tenant
+
+    - name: Create EPG
+      cisco.aci.aci_epg:
+        # Manage End Point Groups (EPG) objects (fv:AEPg)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        ap: "{{ item.ap }}"
+        epg: "{{ item.epg }}"
+        description: "{{ item.descr }}"
+        bd: "{{ item.bd }}"
+        monitoring_policy: "{{ item.mon_pol }}"
+        preferred_group: "{{ item.prf_grp }}"
+        priority: unspecified
+        intra_epg_isolation: "{{ item.epg_iso }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', descr: 'web servers epg', bd: 'MATLAB1-1_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', descr: 'app servers epg', bd: 'MATLAB1-1_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', descr: 'db servers epg', bd: 'MATLAB1-1_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', descr: 'cart servers epg', bd: 'MATLAB1-2_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', descr: 'checkout servers epg', bd: 'MATLAB1-2_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
+      delegate_to: localhost
+      tags: 
+        - epg
+        - tenant
+
+    - name: Create encapsulation pools
+      cisco.aci.aci_encap_pool:
+        # Manage encap pools (fvns:VlanInstP, fvns:VxlanInstP, fvns:VsanInstP)
+        # API:
+        <<: *aci_login
+        pool: "{{ item.pool }}"
+        pool_type: "{{ item.type }}"
+        pool_allocation_mode: "{{ item.mode }}"
+        description: "{{ item.descr }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {pool: 'MATLAB_Pool', type: 'vlan', mode: 'static', descr: 'MATLAB VLANs', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - vlan_pool
+        - fabric
+
+    - name: Create VLAN ranges
+      cisco.aci.aci_encap_pool_range:
+        # Manage encap ranges assigned to pools (fvns:EncapBlk, fvns:VsanEncapBlk)
+        # API:
+        <<: *aci_login
+        pool: "{{ item.pool }}"
+        pool_type: "{{ item.type }}"
+        pool_allocation_mode: "{{ item.mode }}"
+        range_name: "{{ item.name }}"
+        range_start: "{{ item.start }}"
+        range_end: "{{ item.stop }}"
+        allocation_mode: "{{ item.alloc }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {pool: 'MATLAB_Pool', type: 'vlan', mode: 'static', name: 'MATLAB_VLANS', start: 1401, stop: 1421, alloc: 'inherit', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - vlan_range
+        - fabric
+
+    - name: Bind physical domain to VLAN pool
+      cisco.aci.aci_domain_to_vlan_pool:
+        # Bind Domain to VLAN Pools (infra:RsVlanNs)
+        # API:
+        <<: *aci_login
+        domain: "{{ item.domain }}"
+        domain_type: "{{ item.type }}"
+        pool: "{{ item.pool }}"
+        pool_allocation_mode: "{{ item.mode }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {domain: 'MATLAB_PHY_DOM', type: 'phys', pool: 'MATLAB_Pool', mode: 'static', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - bind_pool
+        - fabric
+
+    - name: Add new physical domain to EPG binding
+      cisco.aci.aci_epg_to_domain:
+        # Bind EPGs to Domains (fv:RsDomAtt)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        ap: "{{ item.ap }}"
+        epg: "{{ item.epg }}"
+        domain: "{{ item.domain }}"
+        domain_type: "{{ item.type }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - bind_epg
+        - tenant
+
+    - name: Map static port bindings to an EPG
+      cisco.aci.aci_static_binding_to_epg:
+        # Bind static paths to EPGs (fv:RsPathAtt)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}/rspathAtt-[topology/pod-1/paths-{{NODES}}/pathep-[eth1/{{INTERFACES}}]].json
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        ap: "{{ item.ap }}"
+        epg: "{{ item.epg }}"
+        pod_id: "{{ item.pod }}"
+        leafs: "{{ item.leaf }}"
+        interface: "{{ item.intf }}"
+        encap_id: "{{ item.vlan }}"
+        deploy_immediacy: "{{ item.immediacy }}"
+        interface_mode: "{{ item.mode }}"
+        interface_type: "{{ item.type }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}	
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - static_map
+        - tenant
+
+    - name: Configure a contract
+      cisco.aci.aci_contract:
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        contract: "{{ item.contract }}"
+        scope: "{{ item.scope }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', contract: 'web-contract-c01', scope: 'context', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', scope: 'context', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'db-contract-c03', scope: 'context', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'cart-contract-c04', scope: 'context', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'checkout-contract-c05', scope: 'context', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+
+    - name: Configure a contract subject
+      cisco.aci.aci_contract_subject:
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        contract: "{{ item.contract }}"
+        subject: "{{ item.subject }}"
+        reverse_filter: "{{ item.reverse_filter }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', contract: 'web-contract-c01', subject: 'web-subject-s01', reverse_filter: true, state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', reverse_filter: true, state: 'present'}
+        - {tenant: 'MATLAB', contract: 'db-contract-c03', subject: 'db-subject-s03', reverse_filter: true, state: 'present'}
+        - {tenant: 'MATLAB', contract: 'cart-contract-c04', subject: 'cart-subject-s03', reverse_filter: true, state: 'present'}
+        - {tenant: 'MATLAB', contract: 'checkout-contract-c05', subject: 'checkout-subject-s03', reverse_filter: true, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+
+    - name: Configure a reverse_filter
+      cisco.aci.aci_filter:
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        filter: "{{ item.filter }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', filter: 'allow-web-ssl', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-web', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-ohs-app-http', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-ohs-app-https', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-oracle-dir', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-mq-xml-msg', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-notifications', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-identity-mgt', state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-db', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+
+    - name: Configure a filter entry
+      cisco.aci.aci_filter_entry:
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        filter: "{{ item.filter }}"
+        entry: "{{ item.entry }}"
+        ether_type: "{{ item.type }}"
+        ip_protocol: "{{ item.protocol }}"
+        dst_port_start: "{{ item.start_port }}"
+        dst_port_end: "{{ item.end_port }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', filter: 'allow-web-ssl', entry: 'web', type: 'ip', protocol: 'tcp', start_port: 443, end_port: 443, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-web', entry: 'web-ssl', type: 'ip', protocol: 'tcp', start_port: 80, end_port: 80, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-ohs-app-http', entry: 'http', type: 'ip', protocol: 'tcp', start_port: 4443, end_port: 4443, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-ohs-app-https', entry: 'https', type: 'ip', protocol: 'tcp', start_port: 7777, end_port: 7777, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-ohs-app-https', entry: 'https', type: 'ip', protocol: 'tcp', start_port: 8888, end_port: 8888, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-oracle-dir', entry: 'oracle-ds', type: 'ip', protocol: 'tcp', start_port: 6501, end_port: 6501, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-notifications', entry: 'notifications', type: 'ip', protocol: 'tcp', start_port: 6003, end_port: 6003, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-mq-xml-msg', entry: 'mq-xml', type: 'ip', protocol: 'tcp', start_port: 80, end_port: 80, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-identity-mgt', entry: 'identity', type: 'ip', protocol: 'tcp', start_port: 7499, end_port: 7499, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'sql', type: 'ip', protocol: 'tcp', start_port: 1433, end_port: 1434, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'oracle_db', type: 'ip', protocol: 'tcp', start_port: 1421, end_port: 1421, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'MySQL', type: 'ip', protocol: 'tcp', start_port: 3306, end_port: 3306, state: 'present'}
+        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'PostgreSQL', type: 'ip', protocol: 'tcp', start_port: 5432, end_port: 5432, state: 'present'}
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+
+    - name: Associate a filter to a contract subject
+      cisco.aci.aci_contract_subject_to_filter:
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        contract: "{{ item.contract }}"
+        subject: "{{ item.subject }}"
+        filter: "{{ item.filter }}"
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', contract: 'web-contract-c01', subject: 'web-subject-s01', filter: 'allow-web-ssl', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'web-contract-c01', subject: 'web-subject-s01', filter: 'allow-web', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-ohs-app-http', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-ohs-app-https', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-oracle-dir', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-notifications', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-mq-xml-msg', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-identity-mgt', state: 'present'}
+        - {tenant: 'MATLAB', contract: 'db-contract-c03', subject: 'db-subject-s03', filter: 'allow-db', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+
+    - name: Associate a contract to an EPG
+      cisco.aci.aci_epg_to_contract:
+        <<: *aci_login
+        tenant: "{{ item.tenant }}"
+        ap: "{{ item.ap }}"
+        epg: "{{ item.epg }}"
+        contract: "{{ item.contract }}"
+        contract_type: "{{ item.contract_type }}"  
+        state: "{{ item.state }}"
+      with_items:
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', contract: 'web-contract-c01', contract_type: 'provider', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', contract: 'app-contract-c02', contract_type: 'provider', state: 'present'}
+        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', contract: 'db-contract-c03', contract_type: 'provider', state: 'present'}
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant

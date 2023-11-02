@@ -1,0 +1,70 @@
+# This playbook will use the ACI API REST module.
+
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Get tenants using password authentication
+      cisco.aci.aci_rest:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.xml
+        <<: *aci_login
+        method: get
+        path: /api/node/class/fvTenant.json
+      delegate_to: localhost
+      register: query_result
+      tags:
+        - list_tenants
+
+    - name: Print tenants
+      ansible.builtin.debug:
+        var: query_result
+      tags:
+        - list_tenants
+
+    - name: Display tenant and subtree
+      cisco.aci.aci_rest:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
+        <<: *aci_login
+        method: get
+        path: /api/node/mo/uni/tn-MATLAB.json?query-target=subtree
+      delegate_to: localhost
+      register: query_result
+      tags:
+        - show_tenant
+
+    - name: Print tenants
+      ansible.builtin.debug:
+        var: query_result
+      tags:
+        - show_tenant
+
+    - name: Display Application Profile (AP) and subtree
+      cisco.aci.aci_rest:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{tenant}}/ap-App-1_AP.xml?query-target=subtree
+        <<: *aci_login
+        method: get
+        path: /api/node/mo/uni/tn-MATLAB/ap-App-1_AP.xml?query-target=subtree
+      delegate_to: localhost
+      register: query_result
+      tags:
+        - show_ap
+
+    - name: Print tenants
+      ansible.builtin.debug:
+        var: query_result
+      tags:
+        - show_ap
+

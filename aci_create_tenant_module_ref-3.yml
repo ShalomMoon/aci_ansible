@@ -1,0 +1,333 @@
+# Refactor 3 focuses on using variables within plays.
+
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Create a Snapshot
+      cisco.aci.aci_config_snapshot:
+        <<: *aci_login
+        state: present
+        export_policy: config_backup
+        max_count: 10
+        description: Backups taken by MATLAB Test.
+      delegate_to: localhost
+
+    - name: Wait for snapshot to be finished before querying
+      pause:
+        seconds: 10
+
+    - name: Create tenant
+      cisco.aci.aci_tenant:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
+        <<: *aci_login
+        tenant: "{{ item  }}"
+        description: "Customer {{ item  }}"
+        owner_tag: Ansible
+        state: present
+      loop:
+        - MATLAB
+        - MATLAB2
+      delegate_to: localhost
+      tags:
+        - tenant
+        - ap
+        - vrf
+
+    - name: Create application profile (AP)
+      cisco.aci.aci_ap:
+        # Manage top level Application Profile (AP) objects (fv:Ap)
+        # https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}.json
+        <<: *aci_login
+        tenant: MATLAB
+        ap: "{{ item  }}"
+        description: "{{ item  }} AP"
+        monitoring_policy: default
+        state: present
+      loop:
+        - App-1_AP
+        - App-2_AP
+        - App-3_AP
+      delegate_to: localhost
+      tags:
+        - ap
+
+    - name: Create VRF
+      cisco.aci.aci_vrf:
+        # Manage contexts or VRFs (fv:Ctx)
+        # API:
+        <<: *aci_login
+        vrf: "{{ item  }}"
+        tenant: MATLAB
+        description: "{{ item  }} VRF"
+        # ip_data_plane_learning: enabled
+        policy_control_preference: enforced
+        policy_control_direction: ingress
+        preferred_group: enabled
+        state: present
+      loop:
+        - Net-1_VRF
+        - Net-2_VRF
+        - Net-3_VRF
+      delegate_to: localhost
+      tags:
+        - vrf
+
+    - name: Create bridge domain (BD)
+      cisco.aci.aci_bd:
+        # Manage Bridge Domains (BD) objects (fv:BD)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}.json
+        <<: *aci_login
+        tenant: MATLAB
+        bd: "{{ item }}"
+        bd_type: ethernet
+        vrf: MATLAB_VRF
+        arp_flooding: false
+        endpoint_clear: false
+        enable_routing: true
+        enable_multicast: false
+        ip_learning: true
+        # ipv6_l3_unknown_multicast: flood
+        l2_unknown_unicast: proxy
+        l3_unknown_multicast: flood
+        limit_ip_learn: true
+        multi_dest: bd-flood
+        state: present
+      loop:
+        - MATLAB1-1_BD
+        - MATLAB1-2_BD
+      delegate_to: localhost
+      tags:
+        - bd
+
+    - name: Add subnet to bd
+      cisco.aci.aci_bd_subnet:
+        # Manage Subnets (fv:Subnet)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}/subnet-[{{GATEWAY}}].json
+        <<: *aci_login
+        tenant: MATLAB
+        bd: MATLAB1-1_BD
+        gateway: "{{ item }}"
+        mask: 24
+        description: "Subnet {{ item }}"
+        #scope: public
+        #route_profile_l3_out: corp
+        #route_profile: corp_route_profile
+        subnet_name: 'app_servers'
+        state: present
+      loop:
+        - "172.17.17.1"
+        - "172.17.18.1"
+        - "172.17.19.1"
+      delegate_to: localhost
+      tags:
+        - subnet
+
+    - name: Create EPG
+      cisco.aci.aci_epg:
+        # Manage End Point Groups (EPG) objects (fv:AEPg)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
+        <<: *aci_login
+        tenant: MATLAB
+        ap: App-1_AP
+        epg: "{{ item }}"
+        description: 'app servers epg'
+        bd: MATLAB1-1_BD
+        monitoring_policy: default
+        preferred_group: true
+        priority: unspecified
+        intra_epg_isolation: unenforced
+        state: present
+      loop:
+        - MATLAB-1_EPG
+        - MATLAB-2_EPG
+        - MATLAB-3_EPG
+        - MATLAB-4_EPG
+        - MATLAB-5_EPG
+      delegate_to: localhost
+      tags: epg
+
+    - name: Create domain
+      cisco.aci.aci_domain:
+        # Manage physical, virtual, bridged, routed or FC domain profiles (phys:DomP, vmm:DomP, l2ext:DomP, l3ext:DomP, fc:DomP)
+        # API:
+        <<: *aci_login
+        domain: MATLAB_PHY_DOM
+        domain_type: phys
+        # dscp: unspecified
+        state: present
+      delegate_to: localhost
+
+    - name: Create encapsulation pools
+      cisco.aci.aci_encap_pool:
+        # Manage encap pools (fvns:VlanInstP, fvns:VxlanInstP, fvns:VsanInstP)
+        # API:
+        <<: *aci_login
+        pool: MATLAB_Pool
+        pool_type: vlan
+        pool_allocation_mode: static
+        description: MATLAB VLANs
+        state: present
+      delegate_to: localhost
+
+    - name: Create VLAN ranges
+      cisco.aci.aci_encap_pool_range:
+        # Manage encap ranges assigned to pools (fvns:EncapBlk, fvns:VsanEncapBlk)
+        # API:
+        <<: *aci_login
+        pool: MATLAB_Pool
+        pool_type: vlan
+        pool_allocation_mode: static
+        range_name: MATLAB_VLANS
+        range_start: 1401
+        range_end: 1421
+        allocation_mode: inherit
+        state: present
+      delegate_to: localhost
+
+    - name: Bind physical domain to VLAN pool
+      cisco.aci.aci_domain_to_vlan_pool:
+        # Bind Domain to VLAN Pools (infra:RsVlanNs)
+        # API:
+        <<: *aci_login
+        domain: MATLAB_PHY_DOM
+        domain_type: phys
+        pool: MATLAB_Pool
+        pool_allocation_mode: static
+        state: present
+      delegate_to: localhost
+
+    - name: Add new physical domain to EPG binding
+      cisco.aci.aci_epg_to_domain:
+        # Bind EPGs to Domains (fv:RsDomAtt)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
+        <<: *aci_login
+        tenant: MATLAB
+        ap: App-1_AP
+        epg: "{{ item }}"
+        domain: MATLAB_PHY_DOM
+        domain_type: phys
+        state: present
+      loop:
+        - MATLAB-1_EPG
+        - MATLAB-2_EPG
+        - MATLAB-3_EPG
+        - MATLAB-4_EPG
+        - MATLAB-5_EPG
+      delegate_to: localhost
+      tags:
+        - bind_epg
+
+    - name: Map static port bindings to an EPG
+      cisco.aci.aci_static_binding_to_epg:
+        # Bind static paths to EPGs (fv:RsPathAtt)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}/rspathAtt-[topology/pod-1/paths-{{NODES}}/pathep-[eth1/{{INTERFACES}}]].json
+        <<: *aci_login
+        tenant: MATLAB
+        ap: App-1_AP
+        epg: "{{ item[0] }}"
+        pod_id: 1
+        leafs:
+          - '101'
+        interface: "{{ item[1] }}"
+        encap_id: 1401
+        deploy_immediacy: lazy
+        interface_mode: untagged
+        interface_type: switch_port
+        state: present
+      with_nested:
+        - ["MATLAB-1_EPG", "MATLAB-2_EPG", "MATLAB-3_EPG", "MATLAB-4_EPG", "MATLAB-5_EPG"]
+        - ["1/31", "1/32", "1/33", "1/34", "1/35", "1/36"]
+      delegate_to: localhost
+      tags:
+        - static_map
+
+    - name: Configure a contract
+      cisco.aci.aci_contract:
+        <<: *aci_login
+        tenant: MATLAB
+        contract: "{{ item }}"
+        scope: context
+        state: present
+      loop:
+        - web-contract-c01
+        - app-contract-c02
+        - db-contract-c03
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a contract subject
+      cisco.aci.aci_contract_subject:
+        <<: *aci_login
+        tenant: MATLAB
+        contract: "{{ item[0] }}"
+        subject: "{{ item[1] }}"
+        reverse_filter: true
+        state: present
+      with_nested:
+        - ["web-contract-c01", "app-contract-c02", "db-contract-c03"]
+        - ["web-subject-s01", "app-subject-s02", "db-subject-s03"]
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a reverse_filter
+      cisco.aci.aci_filter:
+        <<: *aci_login
+        tenant: MATLAB
+        filter: allow-https
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a filter entry
+      cisco.aci.aci_filter_entry:
+        <<: *aci_login
+        tenant: MATLAB
+        filter: allow-https
+        entry: https
+        ether_type: ip
+        ip_protocol: tcp
+        dst_port: 443
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Associate a filter to a contract subject
+      cisco.aci.aci_contract_subject_to_filter:
+        <<: *aci_login
+        tenant: MATLAB
+        contract: web-contract-c01
+        subject: web-subject-s01
+        filter: https
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Associate a contract to an EPG
+      cisco.aci.aci_epg_to_contract:
+        <<: *aci_login
+        tenant: MATLAB
+        ap: App-1_AP
+        epg: MATLAB-1_EPG
+        contract: web-contract-c01
+        contract_type: provider
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract

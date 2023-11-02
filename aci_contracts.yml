@@ -1,0 +1,110 @@
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Configure a contract
+      cisco.aci.aci_contract:
+        <<: *aci_login
+        tenant: MATLAB
+        contract: "{{ item }}"
+        scope: context
+        state: present
+      loop:
+        - web-contract-c01
+        - app-contract-c02
+        - db-contract-c03
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a contract subject
+      cisco.aci.aci_contract_subject:
+        <<: *aci_login
+        tenant: MATLAB
+        contract: "{{ item[0] }}"
+        subject: "{{ item[1] }}"
+        reverse_filter: true
+        state: present
+      with_nested:
+        - ["web-contract-c01", "app-contract-c02", "db-contract-c03"]
+        - ["web-subject-s01", "app-subject-s02", "db-subject-s03"]
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a reverse_filter
+      cisco.aci.aci_filter:
+        <<: *aci_login
+        tenant: MATLAB
+        filter: allow-https
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a filter entry
+      cisco.aci.aci_filter_entry:
+        <<: *aci_login
+        tenant: MATLAB
+        filter: allow-https
+        entry: https
+        ether_type: ip
+        ip_protocol: tcp
+        dst_port: 443
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Configure a filter entry
+      cisco.aci.aci_filter_entry:
+        <<: *aci_login
+        tenant: MATLAB
+        filter: "{{ item.filter }}"
+        entry: "{{ item.entry }}"
+        ether_type: "{{ item.type }}"
+        ip_protocol: "{{ item.protocol }}"
+        dst_port_start: "{{ item.start_port }}"
+        dst_port_end: "{{ item.end_port }}"
+        state: present
+      with_items:
+        - {filter: 'allow-https', entry: 'https', type: 'ip', protocol: 'tcp', start_port: 443, end_port: 443}
+        - {filter: 'allow-https', entry: 'http', type: 'ip', protocol: 'tcp', start_port: 80, end_port: 80}
+      delegate_to: localhost
+      tags:
+        - contract2
+
+    - name: Associate a filter to a contract subject
+      cisco.aci.aci_contract_subject_to_filter:
+        <<: *aci_login
+        tenant: MATLAB
+        contract: web-contract-c01
+        subject: web-subject-s01
+        filter: https
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract
+
+    - name: Associate a contract to an EPG
+      cisco.aci.aci_epg_to_contract:
+        <<: *aci_login
+        tenant: MATLAB
+        ap: App-1_AP
+        epg: MATLAB-1_EPG
+        contract: web-contract-c01
+        contract_type: provider
+        state: present
+      delegate_to: localhost
+      tags:
+        - contract

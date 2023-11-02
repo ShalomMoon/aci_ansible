@@ -1,0 +1,28 @@
+# This playbook will use the ACI API REST module.
+
+---
+- hosts: sandboxapicdc.cisco.com
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: sandboxapicdc.cisco.com
+      username: 'admin'
+      password: '!v3G@!4@Y'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Create a Snapshot
+      cisco.aci.aci_config_snapshot:
+        <<: *aci_login
+        state: present
+        export_policy: config_backup
+        max_count: 10
+        description: Backups taken by MATLAB Test.
+      delegate_to: localhost
+
+    - name: Wait for snapshot to be finished before querying
+      pause:
+        seconds: 10
