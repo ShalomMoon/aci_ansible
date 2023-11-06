@@ -14,16 +14,21 @@
   tasks:
     - name: Read contents of .csv file
       community.general.read_csv:
-        path: aci_tenant_vars.csv
+        path: read_csv.csv
       register: tenant_vars
       tags:
         - raw
         - tn
 
-    - name: Print tenant_vars
-      ansible.builtin.debug:
-        var: tenant_vars
-      tags:
-        - raw
-
-
+    - name: Create tenant
+      cisco.aci.aci_tenant:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
+        <<: *aci_login
+        tenant: "{{ item.TENANT }}"
+        description: "{{ item.DESCR }}"
+        owner_tag: "{{ item.OWNER_TAG }}"
+        state: "{{ item.STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.TENANT }}"
