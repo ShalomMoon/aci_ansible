@@ -1,0 +1,29 @@
+---
+- hosts: 172.16.10.177
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: 172.16.10.177
+      username: 'admin'
+      password: 'MyACILab23!'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Read contents of .csv file
+      community.general.read_csv:
+        path: aci_tenant_vars.csv
+      register: tenant_vars
+      tags:
+        - raw
+        - tn
+
+    - name: Print tenant_vars
+      ansible.builtin.debug:
+        var: tenant_vars
+      tags:
+        - raw
+
+
