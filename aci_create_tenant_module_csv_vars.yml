@@ -27,7 +27,7 @@
         - tenant
         - ap
         - epg
-
+    
     - name: Wait for snapshot to be finished before querying
       pause:
         seconds: 10
@@ -281,21 +281,30 @@
     #   tags:
     #     - turd
 
+    - name: Read contents of .csv file
+      community.general.read_csv:
+        path: aci_tenant_vars.csv
+      register: tenant_vars
+      tags:
+        - raw
+        - tn
+
     - name: Create tenant
       cisco.aci.aci_tenant:
         # Manage tenants (fv:Tenant)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        description: "{{ item.descr }}"
-        owner_tag: "{{ item.owner_tag }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', descr: 'MATLAB North America', owner_tag: 'MATLAB Global', state: 'present'}
-        - {tenant: 'MATLAB-2', descr: 'MATLAB Europe', owner_tag: 'MATLAB Global', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        description: "{{ item.TN_DESCR }}"
+        owner_tag: "{{ item.TN_OWNER_TAG }}"
+        state: "{{ item.TN_STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.TN_NAME }}"
       delegate_to: localhost
       tags:
         - tenant
+        - tn
         - ap
         - vrf
 
