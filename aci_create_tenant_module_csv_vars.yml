@@ -288,6 +288,7 @@
       tags:
         - raw
         - tn
+        - ap
 
     - name: Create tenant
       cisco.aci.aci_tenant:
@@ -313,18 +314,18 @@
         # Manage top level Application Profile (AP) objects (fv:Ap)
         # https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}.json
         <<: *aci_login
-        tenant:  "{{ item.tenant }}"
-        ap: "{{ item.ap }}"
-        description:  "{{ item.descr }}"
-        monitoring_policy:  "{{ item.mon_pol }}"
-        state:  "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', ap: 'App-1_AP', descr: 'eCommerce AP', mon_pol: 'default', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-2_AP', descr: 'Engineering AP', mon_pol: 'default', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-2_AP', descr: 'Marketing AP', mon_pol: 'default', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        description: "{{ item.AP_DESCR }}"
+        monitoring_policy: "{{ item.AP_MONPOL }}"
+        state: "{{ item.STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.AP_NAME }}"
       delegate_to: localhost
       tags:
         - ap
+        - tn
         - tenant
 
     - name: Create VRF
