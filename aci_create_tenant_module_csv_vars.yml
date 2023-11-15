@@ -27,7 +27,7 @@
         - tenant
         - ap
         - epg
-
+    
     - name: Wait for snapshot to be finished before querying
       pause:
         seconds: 10
@@ -281,21 +281,31 @@
     #   tags:
     #     - turd
 
+    - name: Read contents of .csv file
+      community.general.read_csv:
+        path: aci_tenant_vars.csv
+      register: tenant_vars
+      tags:
+        - raw
+        - tn
+        - ap
+
     - name: Create tenant
       cisco.aci.aci_tenant:
         # Manage tenants (fv:Tenant)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        description: "{{ item.descr }}"
-        owner_tag: "{{ item.owner_tag }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', descr: 'MATLAB North America', owner_tag: 'MATLAB Global', state: 'present'}
-        - {tenant: 'MATLAB-2', descr: 'MATLAB Europe', owner_tag: 'MATLAB Global', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        description: "{{ item.TN_DESCR }}"
+        owner_tag: "{{ item.TN_OWNER_TAG }}"
+        state: "{{ item.TN_STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.TN_NAME }}"
       delegate_to: localhost
       tags:
         - tenant
+        - tn
         - ap
         - vrf
 
@@ -304,18 +314,18 @@
         # Manage top level Application Profile (AP) objects (fv:Ap)
         # https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}.json
         <<: *aci_login
-        tenant:  "{{ item.tenant }}"
-        ap: "{{ item.ap }}"
-        description:  "{{ item.descr }}"
-        monitoring_policy:  "{{ item.mon_pol }}"
-        state:  "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', ap: 'App-1_AP', descr: 'eCommerce AP', mon_pol: 'default', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-2_AP', descr: 'Engineering AP', mon_pol: 'default', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-2_AP', descr: 'Marketing AP', mon_pol: 'default', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        description: "{{ item.AP_DESCR }}"
+        monitoring_policy: "{{ item.AP_MONPOL }}"
+        state: "{{ item.STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.AP_NAME }}"
       delegate_to: localhost
       tags:
         - ap
+        - tn
         - tenant
 
     - name: Create VRF

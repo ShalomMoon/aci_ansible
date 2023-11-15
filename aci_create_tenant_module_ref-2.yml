@@ -31,6 +31,7 @@
     - name: Wait for snapshot to be finished before querying
       pause:
         seconds: 10
+        
     - name: Create domain
       cisco.aci.aci_domain:
         # Manage physical, virtual, bridged, routed or FC domain profiles (phys:DomP, vmm:DomP, l2ext:DomP, l3ext:DomP, fc:DomP)
