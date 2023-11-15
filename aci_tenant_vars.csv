@@ -1,8 +1,5 @@
-TN_NAME,TN_DESCR,TN_OWNER_TAG,TN_STATE
-MATLAB_TN,MATLAB Tenant,MATLAB,present
-MATLAB_TN,MATLAB Tenant,MATLAB,present
-MATLAB_TN,MATLAB Tenant,MATLAB,present
-MATLAB_TN,MATLAB Tenant,MATLAB,present
-MATLAB_TN,MATLAB Tenant,MATLAB,present
-MATLAB_TN,MATLAB Tenant,MATLAB,present
-MATLAB2_TN,MATLAB Tenant #2,MATLAB,present
+TN_NAME,TN_DESCR,TN_OWNER_TAG,TN_STATE,,AP_NAME,AP_DESCR,AP_MON_POL,AP_STATE
+MATLAB_TN,MATLAB Tenant,MATLAB,present,,App-1_AP,eCommerce AP,default,present
+,,,,,App-2_AP,Engineering AP,default,present
+,,,,,App-2_AP,Marketing AP,default,present
+MATLAB2_TN,MATLAB Tenant #2,MATLAB,present,,,,,
