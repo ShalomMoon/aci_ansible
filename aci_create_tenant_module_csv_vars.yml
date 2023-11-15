@@ -317,8 +317,8 @@
         tenant: "{{ item.TN_NAME }}"
         ap: "{{ item.AP_NAME }}"
         description: "{{ item.AP_DESCR }}"
-        monitoring_policy: "{{ item.AP_MONPOL }}"
-        state: "{{ item.STATE }}"
+        monitoring_policy: "{{ item.AP_MON_POL }}"
+        state: "{{ item.AP_STATE }}"
       loop: "{{ tenant_vars.list }}"
       loop_control:
         label: "{{ item.AP_NAME }}"
@@ -341,6 +341,9 @@
         policy_control_direction: "{{ item.cont_dir }}"
         preferred_group: "{{ item.pref_grp }}"
         state: "{{ item.state }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        
       with_items:
         - {vrf: 'MATLAB_VRF', tenant: 'MATLAB', descr: 'MATLAB VRF', cont_pref: 'enforced', cont_dir: 'ingress', pref_grp: 'disabled', state: 'present'}
       delegate_to: localhost
