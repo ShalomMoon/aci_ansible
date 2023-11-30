@@ -289,6 +289,7 @@
         - raw
         - tn
         - ap
+        - vrf
 
     - name: Create tenant
       cisco.aci.aci_tenant:
@@ -333,19 +334,17 @@
         # Manage contexts or VRFs (fv:Ctx)
         # API:
         <<: *aci_login
-        vrf: "{{ item.vrf }}"
-        tenant: "{{ item.tenant }}"
-        description: "{{ item.descr }}"
+        vrf: "{{ item.VRF_NAME }}"
+        tenant: "{{ item.TN_NAME }}"
+        description: "{{ item.VRF_DESCR }}"
         # ip_data_plane_learning: enabled
-        policy_control_preference: "{{ item.cont_pref }}"
-        policy_control_direction: "{{ item.cont_dir }}"
-        preferred_group: "{{ item.pref_grp }}"
-        state: "{{ item.state }}"
+        policy_control_preference: "{{ item.VRF_POL_CONT_PREF }}"
+        policy_control_direction: "{{ item.VRF_POL_CONT_DIR }}"
+        preferred_group: "{{ item.VRF_PREF_GRP }}"
+        state: "{{ item.VRF_STATE }}"
       loop: "{{ tenant_vars.list }}"
       loop_control:
-        
-      with_items:
-        - {vrf: 'MATLAB_VRF', tenant: 'MATLAB', descr: 'MATLAB VRF', cont_pref: 'enforced', cont_dir: 'ingress', pref_grp: 'disabled', state: 'present'}
+        label: "{{ item.VRF_NAME }}"
       delegate_to: localhost
       tags:
         - vrf

@@ -275,7 +275,7 @@
     #     leaf_node_blk: 102
     #     from: 102
     #     to: 102
-    #     policy_group: 
+    #     policy_group:
     #     state: present
     #   delegate_to: localhost
     #   tags:
