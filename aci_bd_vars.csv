@@ -4,4 +4,4 @@ MATLAB1-1_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flo
 MATLAB1-1_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.17.19.1,24,db Servers,db_servers,present
 MATLAB1-2_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.20.11.1,24,Cart Servers,cart_servers,present
 MATLAB1-2_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.21.13.1,24,Checkout Servers,checkout_servers,present
-MATLAB1-3_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.21.13.1,22,VDI Servers,vdi_servers,present
+MATLAB1-3_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,192.168.20.1,24,VDI Servers,vdi_servers,present

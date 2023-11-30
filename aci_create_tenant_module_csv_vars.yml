@@ -359,6 +359,7 @@
         - bd
         - tn
         - vrf
+        - subnet
 
     - name: Create bridge domain (BD)
       cisco.aci.aci_bd:
@@ -387,28 +388,26 @@
       tags:
         - bd
         - tenant
+        - subnet
 
     - name: Add subnet to bd
       cisco.aci.aci_bd_subnet:
         # Manage Subnets (fv:Subnet)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}/subnet-[{{GATEWAY}}].json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        bd: "{{ item.bd }}"
-        gateway: "{{ item.gateway }}"
-        mask: "{{ item.mask }}"
-        description: "Subnet {{ item.descr }}"
+        tenant: "{{ item.TN_NAME }}"
+        bd: "{{ item.BD_NAME }}"
+        gateway: "{{ item.SUB_GATEWAY }}"
+        mask: "{{ item.SUB_MASK }}"
+        description: "Subnet {{ item.SUB_DESCR }}"
         #scope: public
         #route_profile_l3_out: corp
         #route_profile: corp_route_profile
-        subnet_name: "{{ item.name }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', gateway: '172.17.17.1', mask: 24, descr: 'Web Servers', name: 'web_servers', state: 'present'}
-        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', gateway: '172.17.18.1', mask: 24, descr: 'app Servers', name: 'app_servers', state: 'present'}
-        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', gateway: '172.17.19.1', mask: 24, descr: 'db Servers', name: 'db_servers', state: 'present'}
-        - {tenant: 'MATLAB', bd: 'MATLAB1-2_BD', gateway: '172.20.11.1', mask: 24, descr: 'Cart Servers', name: 'cart_servers', state: 'present'}
-        - {tenant: 'MATLAB', bd: 'MATLAB1-2_BD', gateway: '172.21.13.1', mask: 24, descr: 'Checkout Servers', name: 'checkout_servers', state: 'present'}
+        subnet_name: "{{ item.SUB_NAME }}"
+        state: "{{ item.SUB_STATE }}"
+      loop: "{{ bd_vars.list }}"
+      loop_control:
+        label: "{{ item.SUB_NAME }}"
       delegate_to: localhost
       tags:
         - subnet
