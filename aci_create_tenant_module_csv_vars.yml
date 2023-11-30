@@ -350,29 +350,39 @@
         - vrf
         - tenant
 
+    - name: Read contents of aci_bd_vars.csv file
+      community.general.read_csv:
+        path: aci_bd_vars.csv
+      register: bd_vars
+      tags:
+        - raw
+        - bd
+        - tn
+        - vrf
+
     - name: Create bridge domain (BD)
       cisco.aci.aci_bd:
         # Manage Bridge Domains (BD) objects (fv:BD)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}.json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        bd: "{{ item.bd }}"
-        bd_type: "{{ item.type }}"
-        vrf: "{{ item.vrf }}"
-        arp_flooding: "{{ item.arp }}"
-        endpoint_clear: "{{ item.ep_clr }}"
-        enable_routing: "{{ item.routing }}"
-        enable_multicast: "{{ item.mcast }}"
-        ip_learning: "{{ item.ip_learn }}"
+        tenant: "{{ item.TN_NAME }}"
+        bd: "{{ item.BD_NAME }}"
+        bd_type: "{{ item.BD_TYPE }}"
+        vrf: "{{ item.VRF_NAME }}"
+        arp_flooding: "{{ item.BD_ARP_FLOOD }}"
+        endpoint_clear: "{{ item.BD_EP_CLEAR }}"
+        enable_routing: "{{ item.BD_ROUTING }}"
+        enable_multicast: "{{ item.BD_MCAST }}"
+        ip_learning: "{{ item.BD_IP_LEARN }}"
         # ipv6_l3_unknown_multicast: flood
-        l2_unknown_unicast: "{{ item.l2_unk_ucast }}"
-        l3_unknown_multicast: "{{ item.l3_unk_mcast }}"
+        l2_unknown_unicast: "{{ item.BD_L2_UNK_UCAST }}"
+        l3_unknown_multicast: "{{ item.BD_L3_UNK_MCAST }}"
         limit_ip_learn:
-        multi_dest: "{{ item.multi_dest }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', bd: 'MATLAB1-1_BD', type: 'ethernet', vrf: 'MATLAB_VRF', arp: false, ep_clr: false, routing: true, mcast: false, ip_learn: true, l2_unk_ucast: 'proxy', l3_unk_mcast: 'flood', multi_dest: 'bd-flood', state: 'present'}
-        - {tenant: 'MATLAB', bd: 'MATLAB1-2_BD', type: 'ethernet', vrf: 'MATLAB_VRF', arp: false, ep_clr: false, routing: true, mcast: false, ip_learn: true, l2_unk_ucast: 'proxy', l3_unk_mcast: 'flood', multi_dest: 'bd-flood', state: 'present'}
+        multi_dest: "{{ item.BD_MULTI_DEST }}"
+        state: "{{ item.BD_STATE }}"
+      loop: "{{ bd_vars.list }}"
+      loop_control:
+        label: "{{ item.BD_NAME }}"
       delegate_to: localhost
       tags:
         - bd
