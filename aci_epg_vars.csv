@@ -1,1 +1,6 @@
-
+TN_NAME,AP_NAME,EPG_NAME,EPG_DESCR,BD_NAME,EPG_MON_POL,EPG_PREF_GRP,EPG_ISOLATION,EPG_STATE
+MATLAB_TN,App-1_AP,Web_EPG,Web Servers,MATLAB1-1_BD,default,false,unenforced,present
+MATLAB_TN,App-1_AP,App_EPG,App Servers,MATLAB1-1_BD,default,false,unenforced,present
+MATLAB_TN,App-1_AP,DB_EPG,Databse Servers,MATLAB1-1_BD,default,false,unenforced,present
+MATLAB_TN,App-1_AP,CART_EPG,Cart Servers,MATLAB1-2_BD,default,false,unenforced,present
+MATLAB_TN,App-1_AP,CHECKOUT_EPG,Checkout Servers,MATLAB1-2_BD,default,false,unenforced,present

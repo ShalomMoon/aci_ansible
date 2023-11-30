@@ -413,27 +413,31 @@
         - subnet
         - tenant
 
+    - name: Read contents of aci_bd_vars.csv file
+      community.general.read_csv:
+        path: aci_epg_vars.csv
+      register: epg_vars
+      tags:
+        - epg
+
     - name: Create EPG
       cisco.aci.aci_epg:
         # Manage End Point Groups (EPG) objects (fv:AEPg)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        ap: "{{ item.ap }}"
-        epg: "{{ item.epg }}"
-        description: "{{ item.descr }}"
-        bd: "{{ item.bd }}"
-        monitoring_policy: "{{ item.mon_pol }}"
-        preferred_group: "{{ item.prf_grp }}"
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        description: "{{ item.EPG_DESCR }}"
+        bd: "{{ item.BD_NAME }}"
+        monitoring_policy: "{{ item.EPG_MON_POL }}"
+        preferred_group: "{{ item.EPG_PREF_GRP }}"
         priority: unspecified
-        intra_epg_isolation: "{{ item.epg_iso }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', descr: 'web servers epg', bd: 'MATLAB1-1_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', descr: 'app servers epg', bd: 'MATLAB1-1_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', descr: 'db servers epg', bd: 'MATLAB1-1_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', descr: 'cart servers epg', bd: 'MATLAB1-2_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', descr: 'checkout servers epg', bd: 'MATLAB1-2_BD', mon_pol: 'default', prf_grp: false, epg_iso: 'unenforced', state: 'present'}
+        intra_epg_isolation: "{{ item.EPG_ISOLATION }}"
+        state: "{{ item.EPG_STATE }}"
+      loop: "{{ epg_vars.list }}"
+      loop_control:
+        label: "{{ item.EPG_NAME }}"
       delegate_to: localhost
       tags: 
         - epg
