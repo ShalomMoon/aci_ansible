@@ -1,4 +1,7 @@
-BD_NAME,TN_NAME,BD_TYPE,VRF_NAME,BD_ARP_FLOOD,BD_EP_CLEAR,BD_ROUTING,BD_MCAST,BD_IP_LEARN,BD_L2_UNK_UCAST,BD_L3_UNK_MCAST,BD_MULTI_DEST,BD_STATE
-MATLAB1-1_BD,MATLAB_TN,ethernet,MATLAB_VRF,false,false,true,false,true,proxy,flood,bd-flood,present
-MATLAB1-2_BD,MATLAB_TN,ethernet,MATLAB_VRF,false,false,true,false,true,proxy,flood,bd-flood,present
-MATLAB1-3_BD,MATLAB_TN,ethernet,MATLAB_VRF,false,false,true,false,true,proxy,flood,bd-flood,present
+BD_NAME,TN_NAME,BD_TYPE,VRF_NAME,BD_ARP_FLOOD,BD_EP_CLEAR,BD_ROUTING,BD_MCAST,BD_IP_LEARN,BD_L2_UNK_UCAST,BD_L3_UNK_MCAST,BD_MULTI_DEST,BD_STATE,,SUB_GATEWAY,SUB_MASK,SUB_DESCR,SUB_NAME,SUB_STATE
+MATLAB1-1_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.17.17.1,24,Web Servers,web_servers,present
+MATLAB1-1_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.17.18.1,24,app Servers,app_servers,present
+MATLAB1-1_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.17.19.1,24,db Servers,db_servers,present
+MATLAB1-2_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.20.11.1,24,Cart Servers,cart_servers,present
+MATLAB1-2_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,172.21.13.1,24,Checkout Servers,checkout_servers,present
+MATLAB1-3_BD,MATLAB_TN,ethernet,MATLAB_VRF,FALSE,FALSE,TRUE,FALSE,TRUE,proxy,flood,bd-flood,present,,,,,,
