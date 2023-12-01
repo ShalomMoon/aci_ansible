@@ -419,6 +419,7 @@
       register: epg_vars
       tags:
         - epg
+        - static_map
 
     - name: Create EPG
       cisco.aci.aci_epg:
@@ -496,17 +497,19 @@
         # Bind Domain to VLAN Pools (infra:RsVlanNs)
         # API:
         <<: *aci_login
-        domain: "{{ item.domain }}"
-        domain_type: "{{ item.type }}"
-        pool: "{{ item.pool }}"
-        pool_allocation_mode: "{{ item.mode }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {domain: 'MATLAB_PHY_DOM', type: 'phys', pool: 'MATLAB_Pool', mode: 'static', state: 'present'}
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        pool: "{{ item.VLAN_POOL }}"
+        pool_allocation_mode: "{{ item.DOM_MODE }}"
+        state: "{{ item.DOM_STATE }}"
+      loop: "{{ vlan_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME }}"
       delegate_to: localhost
       tags:
         - bind_pool
         - fabric
+        - vlan
 
     - name: Add new physical domain to EPG binding
       cisco.aci.aci_epg_to_domain:
@@ -535,78 +538,20 @@
         # Bind static paths to EPGs (fv:RsPathAtt)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}/rspathAtt-[topology/pod-1/paths-{{NODES}}/pathep-[eth1/{{INTERFACES}}]].json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        ap: "{{ item.ap }}"
-        epg: "{{ item.epg }}"
-        pod_id: "{{ item.pod }}"
-        leafs: "{{ item.leaf }}"
-        interface: "{{ item.intf }}"
-        encap_id: "{{ item.vlan }}"
-        deploy_immediacy: "{{ item.immediacy }}"
-        interface_mode: "{{ item.mode }}"
-        interface_type: "{{ item.type }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/31', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/32', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/33', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/34', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/35', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 101, intf: '1/36', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}	
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1401, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1402, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1403, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1404, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}		
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/31', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/32', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/33', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/34', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/35', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', pod: 1, leaf: 102, intf: '1/36', vlan: 1405, immediacy: 'lazy', mode: 'regular', type: 'switch_port', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        pod_id: "{{ item.EPG_POD }}"
+        leafs: "{{ item.EPG_LEAF }}"
+        interface: "{{ item.EPG_INTF }}"
+        encap_id: "{{ item.EPG_INTF_VLAN }}"
+        deploy_immediacy: "{{ item.EPG_INTF_IMMEDIACY }}"
+        interface_mode: "{{ item.EPG_INTF_MODE }}"
+        interface_type: "{{ item.EPG_INTF_TYPE }}"
+        state: "{{ item.EPG_INTF_STATE }}"
+      loop: "{{ epg_vars.list }}"
+      loop_control:
+        label: "{{ item.EPG_INTF }}"
       delegate_to: localhost
       tags:
         - static_map
