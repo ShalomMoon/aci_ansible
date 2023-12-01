@@ -413,13 +413,14 @@
         - subnet
         - tenant
 
-    - name: Read contents of aci_bd_vars.csv file
+    - name: Read contents of aci_epg_vars.csv file
       community.general.read_csv:
         path: aci_epg_vars.csv
       register: epg_vars
       tags:
         - epg
         - static_map
+        - bind_epg
 
     - name: Create EPG
       cisco.aci.aci_epg:
@@ -516,18 +517,15 @@
         # Bind EPGs to Domains (fv:RsDomAtt)
         # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        ap: "{{ item.ap }}"
-        epg: "{{ item.epg }}"
-        domain: "{{ item.domain }}"
-        domain_type: "{{ item.type }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-4_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-5_EPG', domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        state: "{{ item.DOM_EPG_STATE }}"
+      loop: "{{ epg_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME }}"
       delegate_to: localhost
       tags:
         - bind_epg
