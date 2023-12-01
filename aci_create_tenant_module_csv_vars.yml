@@ -443,42 +443,53 @@
         - epg
         - tenant
 
+    - name: Read contents of aci_aci_vlans.csv file
+      community.general.read_csv:
+        path: aci_vlans.csv
+      register: vlan_vars
+      tags:
+        - vlan
+
     - name: Create encapsulation pools
       cisco.aci.aci_encap_pool:
         # Manage encap pools (fvns:VlanInstP, fvns:VxlanInstP, fvns:VsanInstP)
         # API:
         <<: *aci_login
-        pool: "{{ item.pool }}"
-        pool_type: "{{ item.type }}"
-        pool_allocation_mode: "{{ item.mode }}"
-        description: "{{ item.descr }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {pool: 'MATLAB_Pool', type: 'vlan', mode: 'static', descr: 'MATLAB VLANs', state: 'present'}
+        pool: "{{ item.VLAN_POOL }}"
+        pool_type: "{{ item.VLAN_TYPE }}"
+        pool_allocation_mode: "{{ item.VLAN_MODE }}"
+        description: "{{ item.VLAN_DESCR }}"
+        state: "{{ item.VLAN_POOL_STATE }}"
+      loop: "{{ vlan_vars.list }}"
+      loop_control:
+        label: "{{ item.VLAN_POOL }}"
       delegate_to: localhost
       tags:
         - vlan_pool
         - fabric
+        - vlan
 
     - name: Create VLAN ranges
       cisco.aci.aci_encap_pool_range:
         # Manage encap ranges assigned to pools (fvns:EncapBlk, fvns:VsanEncapBlk)
         # API:
         <<: *aci_login
-        pool: "{{ item.pool }}"
-        pool_type: "{{ item.type }}"
-        pool_allocation_mode: "{{ item.mode }}"
-        range_name: "{{ item.name }}"
-        range_start: "{{ item.start }}"
-        range_end: "{{ item.stop }}"
-        allocation_mode: "{{ item.alloc }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {pool: 'MATLAB_Pool', type: 'vlan', mode: 'static', name: 'MATLAB_VLANS', start: 1401, stop: 1421, alloc: 'inherit', state: 'present'}
+        pool: "{{ item.VLAN_POOL }}"
+        pool_type: "{{ item.VLAN_TYPE }}"
+        pool_allocation_mode: "{{ item.VLAN_MODE }}"
+        range_name: "{{ item.VLAN_RANGE_NAME }}"
+        range_start: "{{ item.VLAN_START }}"
+        range_end: "{{ item.VLAN_STOP }}"
+        allocation_mode: "{{ item.VLAN_ALLOC_MODE }}"
+        state: "{{ item.VLAN_RANGE_STATE }}"
+      loop: "{{ vlan_vars.list }}"
+      loop_control:
+        label: "{{ item.VLAN_RANGE_NAME }}"
       delegate_to: localhost
       tags:
         - vlan_range
         - fabric
+        - vlan
 
     - name: Bind physical domain to VLAN pool
       cisco.aci.aci_domain_to_vlan_pool:
