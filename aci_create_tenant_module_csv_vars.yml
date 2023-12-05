@@ -531,6 +531,13 @@
         - bind_epg
         - tenant
 
+    # - name: Read contents of aci_epg_static_maps.csv file
+    #   community.general.read_csv:
+    #     path: aci_epg_static_maps.csv
+    #   register: static_map_vars
+    #   tags:
+    #     - static_map
+
     - name: Map static port bindings to an EPG
       cisco.aci.aci_static_binding_to_epg:
         # Bind static paths to EPGs (fv:RsPathAtt)
@@ -549,7 +556,7 @@
         state: "{{ item.EPG_INTF_STATE }}"
       loop: "{{ epg_vars.list }}"
       loop_control:
-        label: "{{ item.EPG_INTF }}"
+        label: "{{ item.EPG_NAME, item.EPG_POD, item.EPG_LEAF, item.EPG_INTF }}"
       delegate_to: localhost
       tags:
         - static_map
