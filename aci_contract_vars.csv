@@ -1,0 +1,12 @@
+TN_NAME,CONT_NAME,CONT_SCOPE,CONT_STATE,SUBJ_NAME,SUBJ_REVERSE_FILTER,SUBJ_STATE,FILTER_NAME,FILTER_STATE,AP_NAME,EPG_NAME,CONT_TYPE,CONT_EPG_STATE
+MATLAB_TN,web-contract-c01,context,present,web-subject-s01,true,present,allow-web-ssl,present,App-1_AP,Web_EPG,provider,present
+MATLAB_TN,web-contract-c01,context,present,web-subject-s01,true,present,allow-web,present,App-1_AP,Web_EPG,provider,present
+MATLAB_TN,app-contract-c02,context,present,app-subject-s02,true,present,allow-ohs-app-http,present,App-1_AP,App_EPG,provider,present
+MATLAB_TN,app-contract-c02,context,present,app-subject-s02,true,present,allow-ohs-app-https,present,App-1_AP,App_EPG,provider,present
+MATLAB_TN,app-contract-c02,context,present,app-subject-s02,true,present,allow-oracle-dir,present,App-1_AP,App_EPG,provider,present
+MATLAB_TN,app-contract-c02,context,present,app-subject-s02,true,present,allow-mq-xml-msg,present,App-1_AP,App_EPG,provider,present
+MATLAB_TN,app-contract-c02,context,present,app-subject-s02,true,present,allow-notifications,present,App-1_AP,App_EPG,provider,present
+MATLAB_TN,app-contract-c02,context,present,app-subject-s02,true,present,allow-identity-mgt,present,App-1_AP,App_EPG,provider,present
+MATLAB_TN,db-contract-c03,context,present,db-subject-s03,true,present,allow-db,present,App-1_AP,DB_EPG,provider,present
+MATLAB_TN,cart-contract-c04,context,present,cart-subject-s03,true,present,allow-db,present,App-1_AP,CART_EPG,provider,present
+MATLAB_TN,checkout-contract-c05,context,present,checkout-subject-s03,true,present,allow-db,present,App-1_AP,CHECKOUT_EPG,provider,present

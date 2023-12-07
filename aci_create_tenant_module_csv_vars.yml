@@ -562,63 +562,64 @@
         - static_map
         - tenant
 
+    - name: Read contents of aci_contract_vars.csv file
+      community.general.read_csv:
+        path: aci_contract_vars.csv
+      register: contract_vars
+      tags:
+        - cont
+        - subj
+        - filt
+        - filt_subj
+        - cont_epg
+
     - name: Configure a contract
       cisco.aci.aci_contract:
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        contract: "{{ item.contract }}"
-        scope: "{{ item.scope }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', contract: 'web-contract-c01', scope: 'context', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', scope: 'context', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'db-contract-c03', scope: 'context', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'cart-contract-c04', scope: 'context', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'checkout-contract-c05', scope: 'context', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        scope: "{{ item.CONT_SCOPE }}"
+        state: "{{ item.CONT_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME }}"
       delegate_to: localhost
       tags:
         - contract
         - tenant
+        - cont
 
     - name: Configure a contract subject
       cisco.aci.aci_contract_subject:
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        contract: "{{ item.contract }}"
-        subject: "{{ item.subject }}"
-        reverse_filter: "{{ item.reverse_filter }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', contract: 'web-contract-c01', subject: 'web-subject-s01', reverse_filter: true, state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', reverse_filter: true, state: 'present'}
-        - {tenant: 'MATLAB', contract: 'db-contract-c03', subject: 'db-subject-s03', reverse_filter: true, state: 'present'}
-        - {tenant: 'MATLAB', contract: 'cart-contract-c04', subject: 'cart-subject-s03', reverse_filter: true, state: 'present'}
-        - {tenant: 'MATLAB', contract: 'checkout-contract-c05', subject: 'checkout-subject-s03', reverse_filter: true, state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        subject: "{{ item.SUBJ_NAME }}"
+        reverse_filter: "{{ item.SUBJ_REVERSE_FILTER }}"
+        state: "{{ item.SUBJ_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME, item.SUBJ_NAME }}"
       delegate_to: localhost
       tags:
         - contract
         - tenant
+        - subj
 
-    - name: Configure a reverse_filter
+    - name: Configure a filter
       cisco.aci.aci_filter:
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        filter: "{{ item.filter }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', filter: 'allow-web-ssl', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-web', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-ohs-app-http', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-ohs-app-https', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-oracle-dir', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-mq-xml-msg', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-notifications', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-identity-mgt', state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-db', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        filter: "{{ item.FILTER_NAME }}"
+        state: "{{ item.FILTER_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME, item.FILTER_NAME }}"
       delegate_to: localhost
       tags:
         - contract
         - tenant
+        - filt
 
     - name: Configure a filter entry
       cisco.aci.aci_filter_entry:
@@ -653,40 +654,34 @@
     - name: Associate a filter to a contract subject
       cisco.aci.aci_contract_subject_to_filter:
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        contract: "{{ item.contract }}"
-        subject: "{{ item.subject }}"
-        filter: "{{ item.filter }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', contract: 'web-contract-c01', subject: 'web-subject-s01', filter: 'allow-web-ssl', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'web-contract-c01', subject: 'web-subject-s01', filter: 'allow-web', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-ohs-app-http', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-ohs-app-https', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-oracle-dir', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-notifications', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-mq-xml-msg', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'app-contract-c02', subject: 'app-subject-s02', filter: 'allow-identity-mgt', state: 'present'}
-        - {tenant: 'MATLAB', contract: 'db-contract-c03', subject: 'db-subject-s03', filter: 'allow-db', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        subject: "{{ item.SUBJ_NAME }}"
+        filter: "{{ item.FILTER_NAME }}"
+        state: "{{ item.FILTER_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME, item.SUBJ_NAME, item.FILTER_NAME }}"
       delegate_to: localhost
       tags:
         - contract
         - tenant
+        - filt_subj
 
     - name: Associate a contract to an EPG
       cisco.aci.aci_epg_to_contract:
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        ap: "{{ item.ap }}"
-        epg: "{{ item.epg }}"
-        contract: "{{ item.contract }}"
-        contract_type: "{{ item.contract_type }}"  
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-1_EPG', contract: 'web-contract-c01', contract_type: 'provider', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-2_EPG', contract: 'app-contract-c02', contract_type: 'provider', state: 'present'}
-        - {tenant: 'MATLAB', ap: 'App-1_AP', epg: 'MATLAB-3_EPG', contract: 'db-contract-c03', contract_type: 'provider', state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        contract_type: "{{ item.CONT_TYPE }}"  
+        state: "{{ item.CONT_EPG_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.AP_NAME, item.EPG_NAME, item.CONT_NAME }}"
       delegate_to: localhost
       tags:
         - contract
         - tenant
+        - cont_epg
