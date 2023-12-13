@@ -1,14 +1,14 @@
 # Refactor 2 add conditional loops and multiple variables.
 
 ---
-- hosts: sandboxapicdc.cisco.com
+- hosts: 172.16.10.177
   gather_facts: no
   connection: local
   vars:
     aci_login: &aci_login
-      host: sandboxapicdc.cisco.com
+      host: 172.16.10.177
       username: 'admin'
-      password: '!v3G@!4@Y'
+      password: 'MyACILab23!'
       validate_certs: false
 
   # API: https://{{apic}}/api/aaaLogin.json
@@ -27,6 +27,7 @@
         - tenant
         - ap
         - epg
+        - snapshot
     
     - name: Wait for snapshot to be finished before querying
       pause:
@@ -568,6 +569,7 @@
       register: contract_vars
       tags:
         - cont
+        - contract
         - subj
         - filt
         - filt_subj
@@ -621,34 +623,31 @@
         - tenant
         - filt
 
+    - name: Read contents of aci_filter_vars.csv file
+      community.general.read_csv:
+        path: aci_filter_vars.csv
+      register: filter_vars
+      tags:
+        - filter
+
     - name: Configure a filter entry
       cisco.aci.aci_filter_entry:
         <<: *aci_login
-        tenant: "{{ item.tenant }}"
-        filter: "{{ item.filter }}"
-        entry: "{{ item.entry }}"
-        ether_type: "{{ item.type }}"
-        ip_protocol: "{{ item.protocol }}"
-        dst_port_start: "{{ item.start_port }}"
-        dst_port_end: "{{ item.end_port }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {tenant: 'MATLAB', filter: 'allow-web-ssl', entry: 'web', type: 'ip', protocol: 'tcp', start_port: 443, end_port: 443, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-web', entry: 'web-ssl', type: 'ip', protocol: 'tcp', start_port: 80, end_port: 80, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-ohs-app-http', entry: 'http', type: 'ip', protocol: 'tcp', start_port: 4443, end_port: 4443, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-ohs-app-https', entry: 'https', type: 'ip', protocol: 'tcp', start_port: 7777, end_port: 7777, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-ohs-app-https', entry: 'https', type: 'ip', protocol: 'tcp', start_port: 8888, end_port: 8888, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-oracle-dir', entry: 'oracle-ds', type: 'ip', protocol: 'tcp', start_port: 6501, end_port: 6501, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-notifications', entry: 'notifications', type: 'ip', protocol: 'tcp', start_port: 6003, end_port: 6003, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-mq-xml-msg', entry: 'mq-xml', type: 'ip', protocol: 'tcp', start_port: 80, end_port: 80, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-identity-mgt', entry: 'identity', type: 'ip', protocol: 'tcp', start_port: 7499, end_port: 7499, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'sql', type: 'ip', protocol: 'tcp', start_port: 1433, end_port: 1434, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'oracle_db', type: 'ip', protocol: 'tcp', start_port: 1421, end_port: 1421, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'MySQL', type: 'ip', protocol: 'tcp', start_port: 3306, end_port: 3306, state: 'present'}
-        - {tenant: 'MATLAB', filter: 'allow-db', entry: 'PostgreSQL', type: 'ip', protocol: 'tcp', start_port: 5432, end_port: 5432, state: 'present'}
+        tenant: "{{ item.TN_NAME }}"
+        filter: "{{ item.FILTER_NAME }}"
+        entry: "{{ item.FILTER_ENTRY }}"
+        ether_type: "{{ item.FILTER_TYPE }}"
+        ip_protocol: "{{ item.FILTER_PROTOCOL }}"
+        dst_port_start: "{{ item.START_PORT }}"
+        dst_port_end: "{{ item.END_PORT }}"
+        state: "{{ item.FILTER_STATE }}"
+      loop: "{{ filter_vars.list }}"
+      loop_control:
+        label: "{{ item.FILTER_NAME, item.FILTER_ENTRY, item.FILTER_TYPE, item.FILTER_PROTOCOL, item.START_PORT, item.END_PORT }}"
       delegate_to: localhost
       tags:
         - contract
+        - filter
         - tenant
 
     - name: Associate a filter to a contract subject

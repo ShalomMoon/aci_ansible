@@ -1,0 +1,14 @@
+TN_NAME,FILTER_NAME,FILTER_ENTRY,FILTER_TYPE,FILTER_PROTOCOL,START_PORT,END_PORT,FILTER_STATE
+MATLAB_TN,allow-web-ssl,web,ip,tcp,443,443,present
+MATLAB_TN,allow-web,web-ssl,ip,tcp,80,80,present
+MATLAB_TN,allow-ohs-app-http,http,ip,tcp,4443,4443,present
+MATLAB_TN,allow-ohs-app-https,https,ip,tcp,7777,7777,present
+MATLAB_TN,allow-ohs-app-https,https,ip,tcp,8888,8888,present
+MATLAB_TN,allow-oracle-dir,oracle-ds,ip,tcp,"6501","6501",present
+MATLAB_TN,allow-notifications,notifications,ip,tcp,6003,6003,present
+MATLAB_TN,allow-mq-xml-msg,mq-xml,ip,tcp,80,80,present
+MATLAB_TN,allow-identity-mgt,identity,ip,tcp,7499,7499,present
+MATLAB_TN,allow-db,sql,ip,tcp,1433,1434,present
+MATLAB_TN,allow-db,oracle_db,ip,tcp,1421,1421,present
+MATLAB_TN,allow-db,MySQL,ip,tcp,3306,3306,present
+MATLAB_TN,allow-db,PostgreSQL,ip,tcp,5432,5432,present

@@ -1,5 +1,5 @@
 ---
-- hosts: sandboxapicdc.cisco.com
+- hosts: 172.16.10.177
   gather_facts: no
   connection: local
   vars:

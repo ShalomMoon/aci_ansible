@@ -1,7 +1,7 @@
 # Refactor 2 add conditional loops and multiple variables.
 
 ---
-- hosts: sandboxapicdc.cisco.com
+- hosts: 172.16.10.177
   gather_facts: no
   connection: local
   vars:
