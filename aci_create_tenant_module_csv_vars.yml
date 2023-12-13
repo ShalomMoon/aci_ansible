@@ -93,30 +93,43 @@
         - aep_domain
         - fabric
 
+    - name: Read contents of fars_intf_policies.csv file
+      community.general.read_csv:
+        path: vars_intf_policies.csv
+      register: intf_pol_vars
+      tags:
+        - intf_pol_cdp
+        - lacp
+        - lldp
+        - link
+        - mcp
+
     - name: Create CDP Interface Policy or verify it's state as present
       cisco.aci.aci_interface_policy_cdp:
       # Manage CDP interface policies (cdp:IfPol)
         <<: *aci_login
-        cdp_policy: "{{ item.cdp_policy }}"
-        admin_state: "{{ item.admin_state }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {cdp_policy: 'CDP_Enabled_IP', admin_state: true, state: 'present'}
+        cdp_policy: "{{ item.CDP_POL_NAME }}"
+        admin_state: "{{ item.CDP_ADMIN_STATE }}"
+        state: "{{ item.CDP_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.CDP_POL_NAME, item.CDP_ADMIN_STATE }}"
       delegate_to: localhost
       tags:
-        - cdp
+        - intf_pol_cdp
         - fabric
 
-    - name: Create LLDP Interface Policy or verify it's state as present   
+    - name: Create LLDP Interface Policy or verify it's state as present
       cisco.aci.aci_interface_policy_lldp:
         #  Manage LLDP interface policies (lldp:IfPol)
         <<: *aci_login
-        lldp_policy: "{{ item.lldp_policy }}"
-        receive_state: "{{ item.rcv_state }}"
-        transmit_state: "{{ item.tx_state }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {lldp_policy: 'LLDP_Enabled_IP', rcv_state: true, tx_state: true, state: 'present'}
+        lldp_policy: "{{ item.LLDP_POL_NAME }}"
+        receive_state: "{{ item.LLDP_RCV }}"
+        transmit_state: "{{ item.LLDP_TX }}"
+        state: "{{ item.LLDP_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.LLDP_POL_NAME, item.LLDP_RCV, item.LLDP_TX }}"
       delegate_to: localhost
       tags:
         - lldp
@@ -126,14 +139,14 @@
       cisco.aci.aci_interface_policy_link_level:
         # Manage Link Level interface policies (fabric:HIfPol)
         <<: *aci_login
-        link_level_policy: "{{ item.link_level_policy }}"
-        description: "{{ item.descr }}"
-        auto_negotiation: "{{ item.auto }}"
-        speed: "{{ item.speed }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {link_level_policy: '10G_IP', descr: '10G Link', auto: false, speed: '10G', state: 'present'}
-        - {link_level_policy: '1G_IP', descr: '1G Link', auto: false, speed: '1G', state: 'present'}
+        link_level_policy: "{{ item.LINK_POL_NAME }}"
+        description: "{{ item.LINK_DESCR }}"
+        auto_negotiation: "{{ item.LINK_AUTO }}"
+        speed: "{{ item.LINK_SPEED }}"
+        state: "{{ item.LINK_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.LINK_POL_NAME, item.LINK_AUTO, item.LINK_SPEED }}"
       delegate_to: localhost
       tags:
         - link
@@ -143,12 +156,13 @@
       cisco.aci.aci_interface_policy_mcp:
         # Manage MCP interface policies (mcp:IfPol)
         <<: *aci_login
-        mcp: "{{ item.mcp }}"
-        description: "{{ item.descr }}"
-        admin_state: "{{ item.admin_state }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {mcp: 'MCP_Enabled_IP', descr: 'MCP Enabled', admin_state: true, state: 'present'}
+        mcp: "{{ item.MCP_POL_NAME }}"
+        description: "{{ item.MCP_DESCR }}"
+        admin_state: "{{ item.MCP_ADMIN_STATE }}"
+        state: "{{ item.MCP_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.MCP_POL_NAME, item.MCP_ADMIN_STATE }}"
       delegate_to: localhost
       tags:
         - mcp
@@ -158,14 +172,14 @@
       cisco.aci.aci_interface_policy_port_channel:
         # Manage port channel interface policies (lacp:LagPol)
         <<: *aci_login
-        port_channel: "{{ item.port_channel }}"
-        mode: "{{ item.mode }}"
-        min_links: "{{ item.min_links }}"
-        max_links: "{{ item.max_links }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {port_channel: 'LACP_Active_IP', mode: 'active', min_links: 1, max_links: 16, state: 'present'}
-        - {port_channel: 'LACP_Passive_IP', mode: 'passive', min_links: 1, max_links: 16, state: 'present'}
+        port_channel: "{{ item.PORT_CH_NAME }}"
+        mode: "{{ item.PORT_CH_MODE }}"
+        min_links: "{{ item.PORT_CH_MIN_LINKS }}"
+        max_links: "{{ item.PORT_CH_MAX_LINKS }}"
+        state: "{{ item.PORT_CH_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.PORT_CH_NAME, item.PORT_CH_MODE, item.PORT_CH_MIN_LINKS, item.PORT_CH_MAX_LINKS }}"
       delegate_to: localhost
       tags:
         - lacp
