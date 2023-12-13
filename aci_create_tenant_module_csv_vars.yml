@@ -41,6 +41,7 @@
         - domain
         - aep
         - aep_domain
+        - int_pol_grp
 
     - name: Create domain
       cisco.aci.aci_domain:
@@ -103,6 +104,7 @@
         - lldp
         - link
         - mcp
+        - int_pol_grp
 
     - name: Create CDP Interface Policy or verify it's state as present
       cisco.aci.aci_interface_policy_cdp:
@@ -189,22 +191,18 @@
       cisco.aci.aci_interface_policy_leaf_policy_group:
         # Manage fabric interface policy leaf policy groups (infra:AccBndlGrp, infra:AccPortGrp)
         <<: *aci_login
-        policy_group: "{{  item.policy_group | default(omit, True)  }}"
-        description: "{{  tem.pg_descr | default(omit, True)  }}"
-        link_level_policy: "{{  item.link_level_policy }}"
-        cdp_policy: "{{  item.cdp_policy | default(omit, True) }}"
-        mcp_policy: "{{  item.mcp_policy | default(omit, True) }}"
-        lldp_policy: "{{  item.lldp_policy | default(omit, True) }}"
-        port_channel_policy: "{{ item.port_channel_policy | default(omit, True) }}"
-        lag_type: "{{  item.lag_type | default(omit, True)  }}"
-        aep: "{{ item.aep }}"
-      with_items:
-        - {policy_group: '10G_CDP_LLDP_MCP_IGP', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: , lag_type: 'leaf', aep: 'MATLAB_AEP', state: 'present'}
-        - {policy_group: '1G_CDP_LLDP_MCP_IGP', pg_descr: '1G_CDP_LLDP_MCP', link_level_policy: '1G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: , lag_type: 'leaf', aep: 'MATLAB_AEP', state: 'present'}
-        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC1', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
-        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC2', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
-        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC3', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
-        - {policy_group: '10G_CDP_LLDP_MCP_LACP_VPC4', pg_descr: '10G_CDP_LLDP_MCP', link_level_policy: '10G_IP', cdp_policy: 'CDP_Enabled_IP', lldp_policy: 'LLDP_Enabled_IP', mcp_policy: 'MCP_Enabled_IP', port_channel_policy: 'LACP_Passive_IP', lag_type: 'node', aep: 'MATLAB_AEP', state: 'present'}
+        policy_group: "{{  item.POL_GRP_NAME | default(omit, True)  }}"
+        description: "{{  tem.POL_GRP_DESCR | default(omit, True)  }}"
+        link_level_policy: "{{  item.LINK_POL_NAME }}"
+        cdp_policy: "{{  item.CDP_POL_NAME | default(omit, True) }}"
+        mcp_policy: "{{  item.MCP_POL_NAME | default(omit, True) }}"
+        lldp_policy: "{{  item.LLDP_POL_NAME | default(omit, True) }}"
+        port_channel_policy: "{{ item.PORT_CH_NAME | default(omit, True) }}"
+        lag_type: "{{  item.LAG_TYPE | default(omit, True)  }}"
+        aep: "{{ item.AEP_NAME }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.POL_GRP_NAME, item.LINK_POL_NAME, item.CDP_POL_NAME, item.MCP_POL_NAME, item.PORT_CH_NAME }}"
       delegate_to: localhost
       tags:
         - int_pol_grp
