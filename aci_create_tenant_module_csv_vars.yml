@@ -28,52 +28,66 @@
         - ap
         - epg
         - snapshot
-    
+
     - name: Wait for snapshot to be finished before querying
-      pause:
+      ansible.builtin.pause:
         seconds: 10
+
+    - name: Read contents of .csv file
+      community.general.read_csv:
+        path: vars_fab_policy.csv
+      register: fab_pol_vars
+      tags:
+        - domain
+        - aep
+        - aep_domain
 
     - name: Create domain
       cisco.aci.aci_domain:
         # Manage physical, virtual, bridged, routed or FC domain profiles (phys:DomP, vmm:DomP, l2ext:DomP, l3ext:DomP, fc:DomP)
         # API:
         <<: *aci_login
-        domain: "{{ item.domain }}"
-        domain_type: "{{ item.type }}"
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
         # dscp: unspecified
-        state: "{{ item.state }}"
-      with_items:
-        - {domain: 'MATLAB_PHY_DOM', type: 'phys', state: 'present'}
+        state: "{{ item.DOM_STATE }}"
+      loop: "{{ fab_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME }}"
       delegate_to: localhost
       tags:
         - domain
+        - aep_domain
         - fabric
 
-    - name: create Attachable Access Entity Profile (AAEP)
+    - name: Create Attachable Access Entity Profile (AAEP)
       cisco.aci.aci_aep:
         # Manage attachable Access Entity Profile (AEP) objects (infra:AttEntityP, infra:ProvAcc)
         <<: *aci_login
-        aep: "{{ item.aep }}"
-        description: "{{ item.descr }}"
-        infra_vlan: "{{ item.infra_vlan }}"
-        state: present
-      with_items:
-        - {aep: 'MATLAB_AEP', descr: 'MATLAB AEP', infra_vlan: false, state: 'present'}
+        aep: "{{ item.AEP_NAME }}"
+        description: "{{ item.AEP_DESCR }}"
+        infra_vlan: "{{ item.AEP_INFRA_VLAN }}"
+        state: "{{ item.AEP_STATE }}"
+      loop: "{{ fab_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME, item.AEP_NAME }}"
       delegate_to: localhost
       tags:
         - aep
+        - aep_domain
         - fabric
 
     - name: Associate a Domain to AEP
       cisco.aci.aci_aep_to_domain:
         # Bind AEPs to Physical or Virtual Domains (infra:RsDomP)
         <<: *aci_login
-        aep: "{{ item.aep }}"
-        domain: "{{ item.domain }}"
-        domain_type: "{{ item.domain_type }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {aep: 'MATLAB_AEP', domain: 'MATLAB_PHY_DOM', domain_type: 'phys', state: 'present'}
+        aep: "{{ item.AEP_NAME }}"
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        state: "{{ item.AEP_DOM_STATE }}"
+      loop: "{{ fab_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME, item.AEP_NAME }}"
       delegate_to: localhost
       tags:
         - aep_domain
