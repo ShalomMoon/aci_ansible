@@ -191,8 +191,8 @@
       cisco.aci.aci_interface_policy_leaf_policy_group:
         # Manage fabric interface policy leaf policy groups (infra:AccBndlGrp, infra:AccPortGrp)
         <<: *aci_login
-        policy_group: "{{  item.POL_GRP_NAME | default(omit, True)  }}"
-        description: "{{  tem.POL_GRP_DESCR | default(omit, True)  }}"
+        policy_group: "{{  item.POL_GRP_NAME | default(omit, True) }}"
+        description: "{{  tem.POL_GRP_DESCR | default(omit, True) }}"
         link_level_policy: "{{  item.LINK_POL_NAME }}"
         cdp_policy: "{{  item.CDP_POL_NAME | default(omit, True) }}"
         mcp_policy: "{{  item.MCP_POL_NAME | default(omit, True) }}"
@@ -208,71 +208,70 @@
         - int_pol_grp
         - fabric
 
+    - name: Read contents of vars_profiles.csv file
+      community.general.read_csv:
+        path: vars_profiles.csv
+      register: profile_vars
+      tags:
+        - intf_profile
+        - switch_profile
+        - leaf_selector
+
     - name: Add Interface Policy Leaf Profile
       cisco.aci.aci_interface_policy_leaf_profile:
       # Manage fabric interface policy leaf profiles (infra:AccPortP)
         <<: *aci_login
-        interface_profile: "{{ item.interface_profile }}"
-        description: "{{ item.descr }}"
-        type: "{{ item.type | default(omit, True) }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {interface_profile: 101_MATLAB_LIP, descr: 'Leaf 101 MATLAB Ports', type: ,state: 'present'}
-        - {interface_profile: 102_MATLAB_LIP, descr: 'Leaf 102 MATLAB Ports', type: ,state: 'present'}
-        - {interface_profile: 101_102_MATLAB_LIP, descr: 'Leaf 101 & 102 MATLAB VPCs', type: ,state: 'present'}
+        interface_profile: "{{ item.INTF_PROF_NAME }}"
+        description: "{{ item.INTF_PROF_DESC }}"
+        state: "{{ item.INTF_PROF_STATE }}"
+      loop: "{{ profile_vars.list }}"
+      loop_control:
+        label: "{{ item.INTF_PROF_NAME }}"
       delegate_to: localhost
       tags:
         - intf_profile
         - fabric
 
+    - name: Read contents of vars_ports_to_leaf_profile.csv file
+      community.general.read_csv:
+        path: vars_ports_to_leaf_profile.csv
+      register: ports_to_leaf_profile
+      tags:
+        - ports_to_leaf_profile
+
     - name: Add Access Ports to Interface Policy Leaf Profile
       cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
       # Manage Fabric interface policy leaf profile interface selectors (infra:HPortS, infra:RsAccBaseGrp, infra:PortBlk)
         <<: *aci_login
-        interface_profile: "{{ item.intf_profile | default(omit, True)  }}"
-        access_port_selector: "{{ item.port_selector | default(omit, True)  }}"
-        description: "{{ item.descr | default(omit, True)  }}"
-        policy_group: "{{ item.policy_grp | default(omit, True) }}"
-        interface_type: "{{ item.intf_type | default(omit, True)  }}"
-        type: "{{ item.type | default(omit, True)  }}"
-        from_card: "{{ item.from_card | default(omit, True)  }}"
-        from_port: "{{ item.from_port | default(omit, True)  }}"
-        to_card: "{{ item.to_card  | default(omit, True) }}"
-        to_port: "{{ item.to_port | default(omit, True)  }}"
-        port_blk: "{{ item.port_blk  | default(omit, True) }}"
-        state: "{{ item.state }}"
-      with_items:
-        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_31', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 31, to_card: 1, to_port: 31, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_32', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 32, to_card: 1, to_port: 32, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_33', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 33, to_card: 1, to_port: 33, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_34', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 34, to_card: 1, to_port: 34, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_35', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 35, to_card: 1, to_port: 35, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '101_MATLAB_LIP', port_selector: 'Eth1_36', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 36, to_card: 1, to_port: 36, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_31', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 31, to_card: 1, to_port: 31, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_32', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 32, to_card: 1, to_port: 32, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_33', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 33, to_card: 1, to_port: 33, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_34', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 34, to_card: 1, to_port: 34, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_35', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 35, to_card: 1, to_port: 35, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '102_MATLAB_LIP', port_selector: 'Eth1_36', policy_grp: '10G_CDP_LLDP_MCP_IGP', descr: ,intf_type: 'switch_port', type: 'leaf', from_cart: 1, from_port: 36, to_card: 1, to_port: 36, port_blk: 'Eth1_31', state: 'present'}
-        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_37', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC1', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 37, to_card: 1, to_port: 37, port_blk: 'Eth1_37', state: 'present'}
-        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_38', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC2', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 38, to_card: 1, to_port: 38, port_blk: 'Eth1_38', state: 'present'}
-        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_39', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC3', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 39, to_card: 1, to_port: 39, port_blk: 'Eth1_39', state: 'present'}
-        - {intf_profile: '101_102_MATLAB_LIP', port_selector: 'Eth1_40', policy_grp: '10G_CDP_LLDP_MCP_LACP_VPC4', descr: ,intf_type: 'port_channel', type: 'leaf', from_cart: 1, from_port: 40, to_card: 1, to_port: 40, port_blk: 'Eth1_40', state: 'present'}
+        interface_profile: "{{ item.INTF_PROF_NAME | default(omit, True) }}"
+        access_port_selector: "{{ item.PORT_SELECTOR | default(omit, True) }}"
+        description: "{{ item.PORT_SELECTOR_DESCR | default(omit, True) }}"
+        policy_group: "{{ item.POL_GRP_NAME | default(omit, True) }}"
+        interface_type: "{{ item.INTF_TYPE | default(omit, True) }}"
+        type: "{{ item.TYPE | default(omit, True) }}"
+        from_card: "{{ item.FROM_CARD | default(omit, True) }}"
+        from_port: "{{ item.FROM_PORT | default(omit, True) }}"
+        to_card: "{{ item.TO_CARD  | default(omit, True) }}"
+        to_port: "{{ item.TO_PORT | default(omit, True) }}"
+        port_blk: "{{ item.PORT_BLK  | default(omit, True) }}"
+        state: "{{ item.INTF_PROF_STATE }}"
+      loop: "{{ ports_to_leaf_profile.list }}"
+      loop_control:
+        label: "{{ item.INTF_PROF_NAME, item.PORT_SELECTOR, item.INTF_TYPE, item.PORT_BLK }}"
       delegate_to: localhost
       tags:
-        - intf_selector
+        - ports_to_leaf_profile
 
-    - name: Create Switch Policy Profiles
+    - name: Create Leaf Switch Profiles
       cisco.aci.aci_switch_policy_leaf_profile:
       # Manage switch policy leaf profiles (infra:NodeP)
         <<: *aci_login
-        leaf_profile: "{{ item.sw_policy_profile }}"
-        descr: "{{ item.descr }}"
-        state:  "{{ item.state }}"
-      with_items:
-        - {sw_policy_profile: '101_MATLAB_LSP', descr: '101_MATLAB_LSP' ,state: 'present'}
-        - {sw_policy_profile: '102_MATLAB_LSP', descr: '101_MATLAB_LSP' ,state: 'present'}
-        - {sw_policy_profile: '101_102_MATLAB_LSP', descr: '101_MATLAB_LSP' ,state: 'present'}
+        leaf_profile: "{{ item.SWITCH_PROF_NAME }}"
+        descr: "{{ item.SWITCH_PROF_DESCR }}"
+        state: "{{ item.SWITCH_PROF_STATE }}"
+      loop: "{{ profile_vars.list }}"
+      loop_control:
+        label: "{{ item.SWITCH_PROF_NAME, item.SWITCH_PROF_DESCR }}"
       delegate_to: localhost
       tags:
         - switch_profile
@@ -282,13 +281,12 @@
       cisco.aci.aci_interface_selector_to_switch_policy_leaf_profile:
       # Bind interface selector profiles to switch policy leaf profiles (infra:RsAccPortP)
         <<: *aci_login
-        leaf_profile: "{{ item.sw_policy_profile }}"
-        interface_selector: "{{ item.interface_selector_profile }}"
-        state:  "{{ item.state }}"
-      with_items:
-        - {sw_policy_profile: '101_MATLAB_LSP', interface_selector_profile: '101_MATLAB_LIP' ,state: 'present'}
-        - {sw_policy_profile: '102_MATLAB_LSP', interface_selector_profile: '102_MATLAB_LIP' ,state: 'present'}
-        - {sw_policy_profile: '101_102_MATLAB_LSP', interface_selector_profile: '101_102_MATLAB_LIP', state: 'present'}
+        leaf_profile: "{{ item.INTF_PROF_SEL_NAME }}"
+        interface_selector: "{{ item.INTF_PROF_SEL }}"
+        state: "{{ item.INTF_PROF_SEL_STATE }}"
+      loop: "{{ profile_vars.list }}"
+      loop_control:
+        label: "{{ item.INTF_PROF_SEL_NAME, item.INTF_PROF_SEL }}"
       delegate_to: localhost
       tags:
         - leaf_selector
@@ -302,11 +300,11 @@
     #     leaf_node_blk: 102
     #     from: 102
     #     to: 102
-    #     policy_group: 
+    #     policy_group:
     #     state: present
     #   delegate_to: localhost
     #   tags:
-    #     - turd
+    #     - Needs_research
 
     - name: Read contents of .csv file
       community.general.read_csv:
@@ -427,9 +425,6 @@
         gateway: "{{ item.SUB_GATEWAY }}"
         mask: "{{ item.SUB_MASK }}"
         description: "Subnet {{ item.SUB_DESCR }}"
-        #scope: public
-        #route_profile_l3_out: corp
-        #route_profile: corp_route_profile
         subnet_name: "{{ item.SUB_NAME }}"
         state: "{{ item.SUB_STATE }}"
       loop: "{{ bd_vars.list }}"
@@ -468,7 +463,7 @@
       loop_control:
         label: "{{ item.EPG_NAME }}"
       delegate_to: localhost
-      tags: 
+      tags:
         - epg
         - tenant
 
@@ -700,7 +695,7 @@
         ap: "{{ item.AP_NAME }}"
         epg: "{{ item.EPG_NAME }}"
         contract: "{{ item.CONT_NAME }}"
-        contract_type: "{{ item.CONT_TYPE }}"  
+        contract_type: "{{ item.CONT_TYPE }}"
         state: "{{ item.CONT_EPG_STATE }}"
       loop: "{{ contract_vars.list }}"
       loop_control:
