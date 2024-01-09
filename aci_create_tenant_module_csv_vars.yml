@@ -33,7 +33,7 @@
       ansible.builtin.pause:
         seconds: 10
 
-    - name: Read contents of .csv file
+    - name: Read contents of vars_fab_policy.csv file
       community.general.read_csv:
         path: vars_fab_policy.csv
       register: fab_pol_vars
@@ -94,7 +94,7 @@
         - aep_domain
         - fabric
 
-    - name: Read contents of fars_intf_policies.csv file
+    - name: Read contents of vars_intf_policies.csv file
       community.general.read_csv:
         path: vars_intf_policies.csv
       register: intf_pol_vars
@@ -306,9 +306,9 @@
     #   tags:
     #     - Needs_research
 
-    - name: Read contents of .csv file
+    - name: Read contents of vars_tenant.csv file
       community.general.read_csv:
-        path: aci_tenant_vars.csv
+        path: vars_tenant.csv
       register: tenant_vars
       tags:
         - raw
@@ -375,9 +375,9 @@
         - vrf
         - tenant
 
-    - name: Read contents of aci_bd_vars.csv file
+    - name: Read contents of vars_bd_subnet.csv file
       community.general.read_csv:
-        path: aci_bd_vars.csv
+        path: vars_bd_subnet.csv
       register: bd_vars
       tags:
         - raw
@@ -435,9 +435,9 @@
         - subnet
         - tenant
 
-    - name: Read contents of aci_epg_vars.csv file
+    - name: Read contents of vars_epg.csv file
       community.general.read_csv:
-        path: aci_epg_vars.csv
+        path: vars_epg.csv
       register: epg_vars
       tags:
         - epg
@@ -467,11 +467,12 @@
         - epg
         - tenant
 
-    - name: Read contents of aci_aci_vlans.csv file
+    - name: Read contents of vars_vlans.csv file
       community.general.read_csv:
-        path: aci_vlans.csv
+        path: vars_vlans.csv
       register: vlan_vars
       tags:
+        - vlan_pool
         - vlan
 
     - name: Create encapsulation pools
@@ -553,9 +554,9 @@
         - bind_epg
         - tenant
 
-    - name: Read contents of aci_epg_static_maps.csv file
+    - name: Read contents of vars_epg_static_maps.csv file
       community.general.read_csv:
-        path: aci_epg_static_maps.csv
+        path: vars_epg_static_maps.csv
       register: static_map_vars
       tags:
         - static_map
@@ -584,9 +585,9 @@
         - static_map
         - tenant
 
-    - name: Read contents of aci_contract_vars.csv file
+    - name: Read contents of vars_contracts.csv file
       community.general.read_csv:
-        path: aci_contract_vars.csv
+        path: vars_contracts.csv
       register: contract_vars
       tags:
         - cont
@@ -644,11 +645,12 @@
         - tenant
         - filt
 
-    - name: Read contents of aci_filter_vars.csv file
+    - name: Read contents of vars_filters.csv file
       community.general.read_csv:
-        path: aci_filter_vars.csv
+        path: vars_filters.csv
       register: filter_vars
       tags:
+        - contract
         - filter
 
     - name: Configure a filter entry
