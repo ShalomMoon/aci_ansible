@@ -1,0 +1,709 @@
+# Refactor 2 add conditional loops and multiple variables.
+
+---
+- hosts: 172.16.10.177
+  gather_facts: no
+  connection: local
+  vars:
+    aci_login: &aci_login
+      host: 172.16.10.177
+      username: 'admin'
+      password: 'MyACILab23!'
+      validate_certs: false
+
+  # API: https://{{apic}}/api/aaaLogin.json
+
+  tasks:
+    - name: Create a Snapshot
+      cisco.aci.aci_config_snapshot:
+        <<: *aci_login
+        state: present
+        export_policy: config_backup
+        max_count: 10
+        description: Backups taken by MATLAB Test.
+      delegate_to: localhost
+      tags:
+        - fabric
+        - tenant
+        - ap
+        - epg
+        - snapshot
+
+    - name: Wait for snapshot to be finished before querying
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Read contents of vars_fab_policy.csv file
+      community.general.read_csv:
+        path: vars_fab_policy.csv
+      register: fab_pol_vars
+      tags:
+        - domain
+        - aep
+        - aep_domain
+        - int_pol_grp
+
+    - name: Create domain
+      cisco.aci.aci_domain:
+        # Manage physical, virtual, bridged, routed or FC domain profiles (phys:DomP, vmm:DomP, l2ext:DomP, l3ext:DomP, fc:DomP)
+        # API:
+        <<: *aci_login
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        # dscp: unspecified
+        state: "{{ item.DOM_STATE }}"
+      loop: "{{ fab_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME }}"
+      delegate_to: localhost
+      tags:
+        - domain
+        - aep_domain
+        - fabric
+
+    - name: Create Attachable Access Entity Profile (AAEP)
+      cisco.aci.aci_aep:
+        # Manage attachable Access Entity Profile (AEP) objects (infra:AttEntityP, infra:ProvAcc)
+        <<: *aci_login
+        aep: "{{ item.AEP_NAME }}"
+        description: "{{ item.AEP_DESCR }}"
+        infra_vlan: "{{ item.AEP_INFRA_VLAN }}"
+        state: "{{ item.AEP_STATE }}"
+      loop: "{{ fab_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME, item.AEP_NAME }}"
+      delegate_to: localhost
+      tags:
+        - aep
+        - aep_domain
+        - fabric
+
+    - name: Associate a Domain to AEP
+      cisco.aci.aci_aep_to_domain:
+        # Bind AEPs to Physical or Virtual Domains (infra:RsDomP)
+        <<: *aci_login
+        aep: "{{ item.AEP_NAME }}"
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        state: "{{ item.AEP_DOM_STATE }}"
+      loop: "{{ fab_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME, item.AEP_NAME }}"
+      delegate_to: localhost
+      tags:
+        - aep_domain
+        - fabric
+
+    - name: Read contents of vars_intf_policies.csv file
+      community.general.read_csv:
+        path: vars_intf_policies.csv
+      register: intf_pol_vars
+      tags:
+        - intf_pol_cdp
+        - lacp
+        - lldp
+        - link
+        - mcp
+        - int_pol_grp
+
+    - name: Create CDP Interface Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_cdp:
+      # Manage CDP interface policies (cdp:IfPol)
+        <<: *aci_login
+        cdp_policy: "{{ item.CDP_POL_NAME }}"
+        admin_state: "{{ item.CDP_ADMIN_STATE }}"
+        state: "{{ item.CDP_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.CDP_POL_NAME, item.CDP_ADMIN_STATE }}"
+      delegate_to: localhost
+      tags:
+        - intf_pol_cdp
+        - fabric
+
+    - name: Create LLDP Interface Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_lldp:
+        #  Manage LLDP interface policies (lldp:IfPol)
+        <<: *aci_login
+        lldp_policy: "{{ item.LLDP_POL_NAME }}"
+        receive_state: "{{ item.LLDP_RCV }}"
+        transmit_state: "{{ item.LLDP_TX }}"
+        state: "{{ item.LLDP_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.LLDP_POL_NAME, item.LLDP_RCV, item.LLDP_TX }}"
+      delegate_to: localhost
+      tags:
+        - lldp
+        - fabric
+
+    - name: Create Interface Link Level Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_link_level:
+        # Manage Link Level interface policies (fabric:HIfPol)
+        <<: *aci_login
+        link_level_policy: "{{ item.LINK_POL_NAME }}"
+        description: "{{ item.LINK_DESCR }}"
+        auto_negotiation: "{{ item.LINK_AUTO }}"
+        speed: "{{ item.LINK_SPEED }}"
+        state: "{{ item.LINK_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.LINK_POL_NAME, item.LINK_AUTO, item.LINK_SPEED }}"
+      delegate_to: localhost
+      tags:
+        - link
+        - fabric
+
+    - name: Create Interface MCP Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_mcp:
+        # Manage MCP interface policies (mcp:IfPol)
+        <<: *aci_login
+        mcp: "{{ item.MCP_POL_NAME }}"
+        description: "{{ item.MCP_DESCR }}"
+        admin_state: "{{ item.MCP_ADMIN_STATE }}"
+        state: "{{ item.MCP_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.MCP_POL_NAME, item.MCP_ADMIN_STATE }}"
+      delegate_to: localhost
+      tags:
+        - mcp
+        - fabric
+
+    - name: Create Interface Port Channel Policy or verify it's state as present
+      cisco.aci.aci_interface_policy_port_channel:
+        # Manage port channel interface policies (lacp:LagPol)
+        <<: *aci_login
+        port_channel: "{{ item.PORT_CH_NAME }}"
+        mode: "{{ item.PORT_CH_MODE }}"
+        min_links: "{{ item.PORT_CH_MIN_LINKS }}"
+        max_links: "{{ item.PORT_CH_MAX_LINKS }}"
+        state: "{{ item.PORT_CH_STATE }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.PORT_CH_NAME, item.PORT_CH_MODE, item.PORT_CH_MIN_LINKS, item.PORT_CH_MAX_LINKS }}"
+      delegate_to: localhost
+      tags:
+        - lacp
+        - fabric
+
+    - name: Add Interface Polices to leaf policy group
+      cisco.aci.aci_interface_policy_leaf_policy_group:
+        # Manage fabric interface policy leaf policy groups (infra:AccBndlGrp, infra:AccPortGrp)
+        <<: *aci_login
+        policy_group: "{{  item.POL_GRP_NAME | default(omit, True) }}"
+        description: "{{  tem.POL_GRP_DESCR | default(omit, True) }}"
+        link_level_policy: "{{  item.LINK_POL_NAME }}"
+        cdp_policy: "{{  item.CDP_POL_NAME | default(omit, True) }}"
+        mcp_policy: "{{  item.MCP_POL_NAME | default(omit, True) }}"
+        lldp_policy: "{{  item.LLDP_POL_NAME | default(omit, True) }}"
+        port_channel_policy: "{{ item.PORT_CH_NAME | default(omit, True) }}"
+        lag_type: "{{  item.LAG_TYPE | default(omit, True)  }}"
+        aep: "{{ item.AEP_NAME }}"
+      loop: "{{ intf_pol_vars.list }}"
+      loop_control:
+        label: "{{ item.POL_GRP_NAME, item.LINK_POL_NAME, item.CDP_POL_NAME, item.MCP_POL_NAME, item.PORT_CH_NAME }}"
+      delegate_to: localhost
+      tags:
+        - int_pol_grp
+        - fabric
+
+    - name: Read contents of vars_profiles.csv file
+      community.general.read_csv:
+        path: vars_profiles.csv
+      register: profile_vars
+      tags:
+        - intf_profile
+        - switch_profile
+        - leaf_selector
+
+    - name: Add Interface Policy Leaf Profile
+      cisco.aci.aci_interface_policy_leaf_profile:
+      # Manage fabric interface policy leaf profiles (infra:AccPortP)
+        <<: *aci_login
+        interface_profile: "{{ item.INTF_PROF_NAME }}"
+        description: "{{ item.INTF_PROF_DESC }}"
+        state: "{{ item.INTF_PROF_STATE }}"
+      loop: "{{ profile_vars.list }}"
+      loop_control:
+        label: "{{ item.INTF_PROF_NAME }}"
+      delegate_to: localhost
+      tags:
+        - intf_profile
+        - fabric
+
+    - name: Read contents of vars_ports_to_leaf_profile.csv file
+      community.general.read_csv:
+        path: vars_ports_to_leaf_profile.csv
+      register: ports_to_leaf_profile
+      tags:
+        - ports_to_leaf_profile
+
+    - name: Add Access Ports to Interface Policy Leaf Profile
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+      # Manage Fabric interface policy leaf profile interface selectors (infra:HPortS, infra:RsAccBaseGrp, infra:PortBlk)
+        <<: *aci_login
+        interface_profile: "{{ item.INTF_PROF_NAME | default(omit, True) }}"
+        access_port_selector: "{{ item.PORT_SELECTOR | default(omit, True) }}"
+        description: "{{ item.PORT_SELECTOR_DESCR | default(omit, True) }}"
+        policy_group: "{{ item.POL_GRP_NAME | default(omit, True) }}"
+        interface_type: "{{ item.INTF_TYPE | default(omit, True) }}"
+        type: "{{ item.TYPE | default(omit, True) }}"
+        from_card: "{{ item.FROM_CARD | default(omit, True) }}"
+        from_port: "{{ item.FROM_PORT | default(omit, True) }}"
+        to_card: "{{ item.TO_CARD  | default(omit, True) }}"
+        to_port: "{{ item.TO_PORT | default(omit, True) }}"
+        port_blk: "{{ item.PORT_BLK  | default(omit, True) }}"
+        state: "{{ item.INTF_PROF_STATE }}"
+      loop: "{{ ports_to_leaf_profile.list }}"
+      loop_control:
+        label: "{{ item.INTF_PROF_NAME, item.PORT_SELECTOR, item.INTF_TYPE, item.PORT_BLK }}"
+      delegate_to: localhost
+      tags:
+        - ports_to_leaf_profile
+
+    - name: Create Leaf Switch Profiles
+      cisco.aci.aci_switch_policy_leaf_profile:
+      # Manage switch policy leaf profiles (infra:NodeP)
+        <<: *aci_login
+        leaf_profile: "{{ item.SWITCH_PROF_NAME }}"
+        descr: "{{ item.SWITCH_PROF_DESCR }}"
+        state: "{{ item.SWITCH_PROF_STATE }}"
+      loop: "{{ profile_vars.list }}"
+      loop_control:
+        label: "{{ item.SWITCH_PROF_NAME, item.SWITCH_PROF_DESCR }}"
+      delegate_to: localhost
+      tags:
+        - switch_profile
+        - fabric
+
+    - name: Associate an Interface Selector Profile to a Leaf Switch Profile
+      cisco.aci.aci_interface_selector_to_switch_policy_leaf_profile:
+      # Bind interface selector profiles to switch policy leaf profiles (infra:RsAccPortP)
+        <<: *aci_login
+        leaf_profile: "{{ item.INTF_PROF_SEL_NAME }}"
+        interface_selector: "{{ item.INTF_PROF_SEL }}"
+        state: "{{ item.INTF_PROF_SEL_STATE }}"
+      loop: "{{ profile_vars.list }}"
+      loop_control:
+        label: "{{ item.INTF_PROF_SEL_NAME, item.INTF_PROF_SEL }}"
+      delegate_to: localhost
+      tags:
+        - leaf_selector
+        - fabric
+
+    # - name: adding a switch policy leaf profile selector associated Node Block range (w/ policy group)
+    #   cisco.aci.aci_switch_leaf_selector:
+    #     <<: *aci_login
+    #     leaf_profile: '102_MATLAB_LSP'
+    #     leaf: 102
+    #     leaf_node_blk: 102
+    #     from: 102
+    #     to: 102
+    #     policy_group:
+    #     state: present
+    #   delegate_to: localhost
+    #   tags:
+    #     - Needs_research
+
+    - name: Read contents of vars_tenant.csv file
+      community.general.read_csv:
+        path: vars_tenant.csv
+      register: tenant_vars
+      tags:
+        - raw
+        - tn
+        - ap
+        - vrf
+
+    - name: Create tenant
+      cisco.aci.aci_tenant:
+        # Manage tenants (fv:Tenant)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}.json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        description: "{{ item.TN_DESCR }}"
+        owner_tag: "{{ item.TN_OWNER_TAG }}"
+        state: "{{ item.TN_STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.TN_NAME }}"
+      delegate_to: localhost
+      tags:
+        - tenant
+        - tn
+        - ap
+        - vrf
+
+    - name: Create application profile (AP)
+      cisco.aci.aci_ap:
+        # Manage top level Application Profile (AP) objects (fv:Ap)
+        # https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}.json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        description: "{{ item.AP_DESCR }}"
+        monitoring_policy: "{{ item.AP_MON_POL }}"
+        state: "{{ item.AP_STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.AP_NAME }}"
+      delegate_to: localhost
+      tags:
+        - ap
+        - tn
+        - tenant
+
+    - name: Create VRF
+      cisco.aci.aci_vrf:
+        # Manage contexts or VRFs (fv:Ctx)
+        # API:
+        <<: *aci_login
+        vrf: "{{ item.VRF_NAME }}"
+        tenant: "{{ item.TN_NAME }}"
+        description: "{{ item.VRF_DESCR }}"
+        # ip_data_plane_learning: enabled
+        policy_control_preference: "{{ item.VRF_POL_CONT_PREF }}"
+        policy_control_direction: "{{ item.VRF_POL_CONT_DIR }}"
+        preferred_group: "{{ item.VRF_PREF_GRP }}"
+        state: "{{ item.VRF_STATE }}"
+      loop: "{{ tenant_vars.list }}"
+      loop_control:
+        label: "{{ item.VRF_NAME }}"
+      delegate_to: localhost
+      tags:
+        - vrf
+        - tenant
+
+    - name: Read contents of vars_bd_subnet.csv file
+      community.general.read_csv:
+        path: vars_bd_subnet.csv
+      register: bd_vars
+      tags:
+        - raw
+        - bd
+        - tn
+        - vrf
+        - subnet
+
+    - name: Create bridge domain (BD)
+      cisco.aci.aci_bd:
+        # Manage Bridge Domains (BD) objects (fv:BD)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}.json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        bd: "{{ item.BD_NAME }}"
+        bd_type: "{{ item.BD_TYPE }}"
+        vrf: "{{ item.VRF_NAME }}"
+        arp_flooding: "{{ item.BD_ARP_FLOOD }}"
+        endpoint_clear: "{{ item.BD_EP_CLEAR }}"
+        enable_routing: "{{ item.BD_ROUTING }}"
+        enable_multicast: "{{ item.BD_MCAST }}"
+        ip_learning: "{{ item.BD_IP_LEARN }}"
+        # ipv6_l3_unknown_multicast: flood
+        l2_unknown_unicast: "{{ item.BD_L2_UNK_UCAST }}"
+        l3_unknown_multicast: "{{ item.BD_L3_UNK_MCAST }}"
+        limit_ip_learn:
+        multi_dest: "{{ item.BD_MULTI_DEST }}"
+        state: "{{ item.BD_STATE }}"
+      loop: "{{ bd_vars.list }}"
+      loop_control:
+        label: "{{ item.BD_NAME }}"
+      delegate_to: localhost
+      tags:
+        - bd
+        - tenant
+        - subnet
+
+    - name: Add subnet to bd
+      cisco.aci.aci_bd_subnet:
+        # Manage Subnets (fv:Subnet)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/BD-{{BD}}/subnet-[{{GATEWAY}}].json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        bd: "{{ item.BD_NAME }}"
+        gateway: "{{ item.SUB_GATEWAY }}"
+        mask: "{{ item.SUB_MASK }}"
+        description: "Subnet {{ item.SUB_DESCR }}"
+        subnet_name: "{{ item.SUB_NAME }}"
+        state: "{{ item.SUB_STATE }}"
+      loop: "{{ bd_vars.list }}"
+      loop_control:
+        label: "{{ item.SUB_NAME }}"
+      delegate_to: localhost
+      tags:
+        - subnet
+        - tenant
+
+    - name: Read contents of vars_epg.csv file
+      community.general.read_csv:
+        path: vars_epg.csv
+      register: epg_vars
+      tags:
+        - epg
+        - static_map
+        - bind_epg
+
+    - name: Create EPG
+      cisco.aci.aci_epg:
+        # Manage End Point Groups (EPG) objects (fv:AEPg)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        description: "{{ item.EPG_DESCR }}"
+        bd: "{{ item.BD_NAME }}"
+        monitoring_policy: "{{ item.EPG_MON_POL }}"
+        preferred_group: "{{ item.EPG_PREF_GRP }}"
+        priority: unspecified
+        intra_epg_isolation: "{{ item.EPG_ISOLATION }}"
+        state: "{{ item.EPG_STATE }}"
+      loop: "{{ epg_vars.list }}"
+      loop_control:
+        label: "{{ item.EPG_NAME }}"
+      delegate_to: localhost
+      tags:
+        - epg
+        - tenant
+
+    - name: Read contents of vars_vlans.csv file
+      community.general.read_csv:
+        path: vars_vlans.csv
+      register: vlan_vars
+      tags:
+        - vlan_pool
+        - vlan
+
+    - name: Create encapsulation pools
+      cisco.aci.aci_encap_pool:
+        # Manage encap pools (fvns:VlanInstP, fvns:VxlanInstP, fvns:VsanInstP)
+        # API:
+        <<: *aci_login
+        pool: "{{ item.VLAN_POOL }}"
+        pool_type: "{{ item.VLAN_TYPE }}"
+        pool_allocation_mode: "{{ item.VLAN_MODE }}"
+        description: "{{ item.VLAN_DESCR }}"
+        state: "{{ item.VLAN_POOL_STATE }}"
+      loop: "{{ vlan_vars.list }}"
+      loop_control:
+        label: "{{ item.VLAN_POOL }}"
+      delegate_to: localhost
+      tags:
+        - vlan_pool
+        - fabric
+        - vlan
+
+    - name: Create VLAN ranges
+      cisco.aci.aci_encap_pool_range:
+        # Manage encap ranges assigned to pools (fvns:EncapBlk, fvns:VsanEncapBlk)
+        # API:
+        <<: *aci_login
+        pool: "{{ item.VLAN_POOL }}"
+        pool_type: "{{ item.VLAN_TYPE }}"
+        pool_allocation_mode: "{{ item.VLAN_MODE }}"
+        range_name: "{{ item.VLAN_RANGE_NAME }}"
+        range_start: "{{ item.VLAN_START }}"
+        range_end: "{{ item.VLAN_STOP }}"
+        allocation_mode: "{{ item.VLAN_ALLOC_MODE }}"
+        state: "{{ item.VLAN_RANGE_STATE }}"
+      loop: "{{ vlan_vars.list }}"
+      loop_control:
+        label: "{{ item.VLAN_RANGE_NAME }}"
+      delegate_to: localhost
+      tags:
+        - vlan_range
+        - fabric
+        - vlan
+
+    - name: Bind physical domain to VLAN pool
+      cisco.aci.aci_domain_to_vlan_pool:
+        # Bind Domain to VLAN Pools (infra:RsVlanNs)
+        # API:
+        <<: *aci_login
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        pool: "{{ item.VLAN_POOL }}"
+        pool_allocation_mode: "{{ item.DOM_MODE }}"
+        state: "{{ item.DOM_STATE }}"
+      loop: "{{ vlan_vars.list }}"
+      loop_control:
+        label: "{{ item.DOM_NAME }}"
+      delegate_to: localhost
+      tags:
+        - bind_pool
+        - fabric
+        - vlan
+
+    - name: Add new physical domain to EPG binding
+      cisco.aci.aci_epg_to_domain:
+        # Bind EPGs to Domains (fv:RsDomAtt)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}.json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        domain: "{{ item.DOM_NAME }}"
+        domain_type: "{{ item.DOM_TYPE }}"
+        state: "{{ item.DOM_EPG_STATE }}"
+      loop: "{{ epg_vars.list }}"
+      loop_control:
+        label: "{{ item.EPG_NAME, item.DOM_NAME }}"
+      delegate_to: localhost
+      tags:
+        - bind_epg
+        - tenant
+
+    - name: Read contents of vars_epg_static_maps.csv file
+      community.general.read_csv:
+        path: vars_epg_static_maps.csv
+      register: static_map_vars
+      tags:
+        - static_map
+
+    - name: Map static port bindings to an EPG
+      cisco.aci.aci_static_binding_to_epg:
+        # Bind static paths to EPGs (fv:RsPathAtt)
+        # API: https://{{apic}}/api/node/mo/uni/tn-{{TENANT}}/ap-{{AP}}/epg-{{EPG}}/rspathAtt-[topology/pod-1/paths-{{NODES}}/pathep-[eth1/{{INTERFACES}}]].json
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        pod_id: "{{ item.EPG_POD }}"
+        leafs: "{{ item.EPG_LEAF }}"
+        interface: "{{ item.EPG_INTF }}"
+        encap_id: "{{ item.EPG_INTF_VLAN }}"
+        deploy_immediacy: "{{ item.EPG_INTF_IMMEDIACY }}"
+        interface_mode: "{{ item.EPG_INTF_MODE }}"
+        interface_type: "{{ item.EPG_INTF_TYPE }}"
+        state: "{{ item.EPG_INTF_STATE }}"
+      loop: "{{ static_map_vars.list }}"
+      loop_control:
+        label: "{{ item.EPG_NAME, item.EPG_POD, item.EPG_LEAF, item.EPG_INTF }}"
+      delegate_to: localhost
+      tags:
+        - static_map
+        - tenant
+
+    - name: Read contents of vars_contracts.csv file
+      community.general.read_csv:
+        path: vars_contracts.csv
+      register: contract_vars
+      tags:
+        - cont
+        - contract
+        - subj
+        - filt
+        - filt_subj
+        - cont_epg
+
+    - name: Configure a contract
+      cisco.aci.aci_contract:
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        scope: "{{ item.CONT_SCOPE }}"
+        state: "{{ item.CONT_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME }}"
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+        - cont
+
+    - name: Configure a contract subject
+      cisco.aci.aci_contract_subject:
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        subject: "{{ item.SUBJ_NAME }}"
+        reverse_filter: "{{ item.SUBJ_REVERSE_FILTER }}"
+        state: "{{ item.SUBJ_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME, item.SUBJ_NAME }}"
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+        - subj
+
+    - name: Configure a filter
+      cisco.aci.aci_filter:
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        filter: "{{ item.FILTER_NAME }}"
+        state: "{{ item.FILTER_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME, item.FILTER_NAME }}"
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+        - filt
+
+    - name: Read contents of vars_filters.csv file
+      community.general.read_csv:
+        path: vars_filters.csv
+      register: filter_vars
+      tags:
+        - contract
+        - filter
+
+    - name: Configure a filter entry
+      cisco.aci.aci_filter_entry:
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        filter: "{{ item.FILTER_NAME }}"
+        entry: "{{ item.FILTER_ENTRY }}"
+        ether_type: "{{ item.FILTER_TYPE }}"
+        ip_protocol: "{{ item.FILTER_PROTOCOL }}"
+        dst_port_start: "{{ item.START_PORT }}"
+        dst_port_end: "{{ item.END_PORT }}"
+        state: "{{ item.FILTER_STATE }}"
+      loop: "{{ filter_vars.list }}"
+      loop_control:
+        label: "{{ item.FILTER_NAME, item.FILTER_ENTRY, item.FILTER_TYPE, item.FILTER_PROTOCOL, item.START_PORT, item.END_PORT }}"
+      delegate_to: localhost
+      tags:
+        - contract
+        - filter
+        - tenant
+
+    - name: Associate a filter to a contract subject
+      cisco.aci.aci_contract_subject_to_filter:
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        subject: "{{ item.SUBJ_NAME }}"
+        filter: "{{ item.FILTER_NAME }}"
+        state: "{{ item.FILTER_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.CONT_NAME, item.SUBJ_NAME, item.FILTER_NAME }}"
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+        - filt_subj
+
+    - name: Associate a contract to an EPG
+      cisco.aci.aci_epg_to_contract:
+        <<: *aci_login
+        tenant: "{{ item.TN_NAME }}"
+        ap: "{{ item.AP_NAME }}"
+        epg: "{{ item.EPG_NAME }}"
+        contract: "{{ item.CONT_NAME }}"
+        contract_type: "{{ item.CONT_TYPE }}"
+        state: "{{ item.CONT_EPG_STATE }}"
+      loop: "{{ contract_vars.list }}"
+      loop_control:
+        label: "{{ item.AP_NAME, item.EPG_NAME, item.CONT_NAME }}"
+      delegate_to: localhost
+      tags:
+        - contract
+        - tenant
+        - cont_epg

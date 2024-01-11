@@ -1,17 +1,26 @@
 ---
-- hosts: sandboxapicdc.cisco.com
+- hosts: 172.16.10.177
   gather_facts: no
   connection: local
   vars:
     aci_login: &aci_login
-      host: sandboxapicdc.cisco.com
+      host: 172.16.10.177
       username: 'admin'
-      password: '!v3G@!4@Y'
+      password: 'MyACILab23!'
       validate_certs: false
 
-  # API: https://{{apic}}/api/aaaLogin.json
 
   tasks:
+    - name: Create a Snapshot
+      # API: https://{{apic}}/api/aaaLogin.json
+      cisco.aci.aci_config_snapshot:
+        <<: *aci_login
+        state: present
+        export_policy: config_backup
+        max_count: 10
+        description: Backups taken by MATLAB Test.
+      delegate_to: localhost
+
     - name: Create a local user
       cisco.aci.aci_aaa_user:
         <<: *aci_login

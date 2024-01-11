@@ -1,12 +1,12 @@
 ---
-- hosts: sandboxapicdc.cisco.com
+- hosts: 172.16.10.177
   gather_facts: no
   connection: local
   vars:
     aci_login: &aci_login
-      host: sandboxapicdc.cisco.com
+      host: 172.16.10.177
       username: 'admin'
-      password: '!v3G@!4@Y'
+      password: 'MyACILab23!'
       validate_certs: false
 
   # API: https://{{apic}}/api/aaaLogin.json
