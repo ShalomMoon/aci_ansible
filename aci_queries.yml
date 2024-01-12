@@ -68,3 +68,34 @@
       tags:
         - show_ap
 
+    - name: Query all controllers system information
+      cisco.aci.aci_system:
+        <<: *aci_login
+        state: query
+      delegate_to: localhost
+      register: query_result
+      tags:
+        - controllers
+
+    - name: Print controllers state data
+      ansible.builtin.debug:
+        var: query_result
+      tags:
+        - controllers
+
+    - name: Display all nodes inventory
+      cisco.aci.aci_rest:
+        # API: https://{{apic}}/api/node/class/fabricNode.json?query-target=subtree
+        <<: *aci_login
+        method: get
+        path: /api/node/class/fabricNode.json?query-target=subtree
+      delegate_to: localhost
+      register: query_result
+      tags:
+        - get_nodes
+
+    - name: Print tenants
+      ansible.builtin.debug:
+        var: query_result
+      tags:
+        - get_nodes
